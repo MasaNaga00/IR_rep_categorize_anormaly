@@ -1,0 +1,19 @@
+# 入力 CSV の列の対応づけ(要件定義書 I-01)
+# 左: プログラム内部の名前(変更しない) / 右: 入力 CSV の列名(実データに合わせて変更する)
+# serial 以外は必須の列。serial の列が入力に無くてもエラーにはしない(使用期間・ロットの解析ができないだけ)
+repair_id: ID
+model: 製品名
+product_type: 事業コード
+part_no: 部品番号
+serial: シリアル
+received_date: 受付日
+sales_company: 販社名
+user_comment: user_comment
+repair_comment: repair_comment
+internal_1: Internal_1
+internal_2: Internal_2
+
+# --- シリアル変換結果ファイルの列名(要件定義書 S-10)---
+# 書かなければ、上の model・received_date と同じ列名とみなす(入力 CSV をそのまま変換ツールで変換した場合は書かなくてよい)
+# serial_result_model: 製品名
+# serial_result_reference_date: 受付日

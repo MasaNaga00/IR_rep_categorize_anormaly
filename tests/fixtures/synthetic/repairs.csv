@@ -1,0 +1,16 @@
+﻿ID,製品名,事業コード,部品番号,シリアル,受付日,販社名,user_comment,repair_comment,Internal_1,Internal_2
+R001,X100,ML,P-001,061234567,2026-01-15,CMJ,電源が入らないことがある,メイン基板の不良により電源が入らなかったため、メイン基板を交換いたしました。,お客様へ見積連絡済み。,引取便手配
+R002,X100,ML,P-001,071234568,2026/02/03,CUSA,Camera does not power on,Replaced main board,,
+R002,X100,ML,P-001,071234569,2026/2/5,CUSA,LCD flickers,,,Main PCB replaced
+R003,X100,ML,P-001,ａｂ１２３４５６,46000,CCN,无法开机,更换主板,,
+R004,X100,ML,P-001,081234570,2026-03-10,CKR,전원이 켜지지 않음,메인보드 교체,,
+R005,X100,ML,P-001,081234571,2026-03-11,CEU,,,,
+R006,,ML,P-001,081234572,2026-03-12,CEU,No power,Replaced board,,
+R007,X100,ML,P-001,081234573,2026-13-01,CEU,No power,Replaced board,,
+R008,X100,XX,P-001,081234574,2026-03-13,CEU,No power,Replaced board,,
+R009,X100,ML,,081234575,2026-03-14,CEU,No power,Replaced board,,
+,X100,ML,P-001,081234576,2026-03-15,CEU,No power,Replaced board,,
+ R010 , L200 ,LENS, P-777 ,  ab12x  ,2026/03/01 10:20:00,CEU,AF does not work,AF motor replaced,,
+R011,X100,ML,P-001,081234577,2026-03-16,,No power,Replaced board,,
+R012,X100,ML,P-001,,2026-03-17,CMJ,液晶にゴミ,表面を清掃しました,,
+R013,X100,ML,P-001,081234578,,CEU,No power,Replaced board,,

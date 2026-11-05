@@ -1,0 +1,357 @@
+# テスト専用のコード体系(R-05)。実データ用の config/classification_codes.yaml とは独立。
+# 生成元: 2026-11-02 時点の config/classification_codes.yaml から、架空データで使うコードと必須コードを抜粋し、
+# v2 で追加するキー(code_prefix, role, always_user_caused, claim_reproduction_statuses)を付与。STB は架空製品。
+meta:
+  version: 0.3.0-test
+  description: テスト専用のコード体系(実データ用 YAML とは独立。R-05)
+product_categories:
+  ML:
+    name: ミラーレスカメラ
+    code_prefix: M
+    failure_categories:
+      M001:
+        name: 電源不良
+        description: 電源が入らない、電源が落ちる、起動しない等、電源系統全般の不具合。電源SWの操作不良はM021に分類。
+        record_type: failure
+        responsibility: manufacturer
+      M002:
+        name: エラー
+        description: 操作中にエラーメッセージ・エラーコードが表示される、エラー停止する。具体的な機能不良が特定できない場合のエラー表示も含む。
+        record_type: failure
+        responsibility: manufacturer
+      M003:
+        name: 動作不良
+        description: 特定の機能・操作が正常に動作しない包括的なカテゴリ。他の具体的な分類に該当しない動作異常。
+        record_type: failure
+        responsibility: manufacturer
+      M004:
+        name: 熱くなる
+        description: 本体が異常に発熱する、発熱による動作停止や不安定動作が発生する。
+        record_type: failure
+        responsibility: manufacturer
+      M005:
+        name: AF不良
+        description: オートフォーカスが作動しない、合焦しない、迷う、動作不安定等のAF全般の不具合。
+        record_type: failure
+        responsibility: manufacturer
+      M007:
+        name: シャッター不具合
+        description: シャッターが切れない、切れっぱなし、シャッター幕の動作異常、シャッター速度異常等。
+        record_type: failure
+        responsibility: manufacturer
+      M008:
+        name: 画像不具合
+        description: 撮影画像の異常（線・点・ノイズ・色再現不良等）。撮像センサー・画像処理に起因する画質問題。
+        record_type: failure
+        responsibility: manufacturer
+      M009:
+        name: 異音
+        description: 通常動作中・操作中に異常な音が発生する。原因部位は問わず音そのものを訴える分類。
+        record_type: failure
+        responsibility: manufacturer
+      M010:
+        name: 動画撮影時不具合
+        description: 動画撮影モード固有の不具合（録画停止、音声異常、動画特有の画像不良等）。
+        record_type: failure
+        responsibility: manufacturer
+      M012:
+        name: センサー内ゴミ
+        description: 撮像センサー内部に侵入したゴミ。製造工程・組立工程で混入した可能性があり、 メーカー側の責任範囲とみなす分類。 判定不能な場合（内部か表面か特定できない場合）はM013（センサーゴミ）に分類すること。
+        record_type: failure
+        responsibility: manufacturer
+      M013:
+        name: センサーゴミ
+        description: 撮像センサー表面（外側）に付着したゴミ。ユーザー使用環境で付着した可能性があり、 メーカー側の責任範囲外とみなす分類。 判定不能な場合（センサー内部か表面か特定できない場合）もこちらに分類する。
+        record_type: failure
+        responsibility: user_or_unknown
+      M015:
+        name: ファインダーゴミ
+        description: ファインダー表面（外側、接眼レンズ表面等）に付着したゴミ。ユーザー使用環境で付着した可能性があり、 メーカー側の責任範囲外とみなす分類。 判定不能な場合（内部か外部か特定できない場合）もこちらに分類する。
+        record_type: failure
+        responsibility: user_or_unknown
+      M016:
+        name: ファインダー/EVF表示不具合
+        description: ファインダー・電子ビューファインダーの表示異常（表示されない、ノイズ、表示遅延、色異常等）。ゴミ起因はM014/M015。
+        record_type: failure
+        responsibility: manufacturer
+      M017:
+        name: LCD表示不具合
+        description: 背面液晶（LCD）の表示異常（表示されない、ノイズ、輝度異常、色異常、ドット抜け、画面割れ等）。
+        record_type: failure
+        responsibility: manufacturer
+      M020:
+        name: レンズ通信不良
+        description: ボディ・レンズ間の通信エラー、レンズ認識不良、装着時のエラー表示等。
+        record_type: failure
+        responsibility: manufacturer
+      M021:
+        name: 電源SW不具合
+        description: 電源スイッチ自体の動作不良（押しても反応しない、感触異常、固着等）。電源系統全般の不具合はM001。
+        record_type: failure
+        responsibility: manufacturer
+      M022:
+        name: レリーズボタン不具合
+        description: シャッターボタン（レリーズボタン）の動作不良（押しても反応しない、半押し効かない、感触異常等）。
+        record_type: failure
+        responsibility: manufacturer
+      M023:
+        name: 電子ダイヤル不具合（メイン）
+        description: メイン電子ダイヤル（前ダイヤル等の主要ダイヤル）の操作不良、回転不良、認識不良。
+        record_type: failure
+        responsibility: manufacturer
+      M024:
+        name: 電子ダイヤル不具合（サブ）
+        description: サブ電子ダイヤル（後ダイヤル等の補助ダイヤル）の操作不良、回転不良、認識不良。
+        record_type: failure
+        responsibility: manufacturer
+      M026:
+        name: 背面操作部不具合
+        description: 背面の各種ボタン・十字キー・コントロールパッド等の操作不良。電子ダイヤル・タッチパネルは別分類。
+        record_type: failure
+        responsibility: manufacturer
+      M031:
+        name: 内蔵ストロボ不具合
+        description: 内蔵ストロボ（フラッシュ）の発光不良、ポップアップ機構不良、調光異常等。
+        record_type: failure
+        responsibility: manufacturer
+      M042:
+        name: 検査
+        description: お客様依頼またはメーカー判断による検査・点検作業を行った修理データ。
+        record_type: service
+        responsibility: user_or_unknown
+      M043:
+        name: クリーニング
+        description: 清掃・クリーニング作業を行った修理データ。
+        record_type: service
+        responsibility: user_or_unknown
+      M044:
+        name: オーバーホール
+        description: 定期メンテナンス・オーバーホール作業を行った修理データ。
+        record_type: service
+        responsibility: user_or_unknown
+      M045:
+        name: ファームアップ
+        description: ファームウェアアップデートで対応した修理データ。ユーザが不具合を訴えていても、ファームアップで解消した場合はこのコードに分類する。
+        record_type: service
+        responsibility: user_or_unknown
+      M046:
+        name: その他
+        description: 上記いずれの分類にも該当しない修理データ。本コード体系の見直し検討対象。
+        record_type: failure
+        responsibility: manufacturer
+        role: other
+      M047:
+        name: 接続機器要因
+        description: 接続したレンズ・アクセサリー等の側に原因があり、本体には異常がないと判断された修理データ。
+        record_type: failure
+        responsibility: user_or_unknown
+        role: connected_device
+      M048:
+        name: 設定・操作起因
+        description: カメラの設定や操作方法が原因で現象が発生しており、本体に異常がないもの。設定の解除・変更や操作の説明で解消した修理データ。部品の不具合が見つかった場合はこのコードにしない。
+        record_type: failure
+        responsibility: user_or_unknown
+      M_UNK:
+        name: 判定不能
+        description: 情報不足等で分類できない修理データ。コメントが極端に短い、内容が抽象的等の場合。
+        record_type: unknown
+        responsibility: user_or_unknown
+        role: unknown
+  LENS:
+    name: 交換レンズ
+    code_prefix: L
+    failure_categories:
+      L001:
+        name: AF作動不具合
+        description: レンズのAF駆動不良、AFが作動しない、動作不安定。AFピントズレはL002。
+        record_type: failure
+        responsibility: manufacturer
+      L008:
+        name: ズーム引掛り/作動不具合
+        description: ズームリングの動作不良（重い、軽い、引っ掛かり、動かない、ザラつき等）。
+        record_type: failure
+        responsibility: manufacturer
+      L028:
+        name: レンズ内：ゴミ/キズ/汚れ
+        description: レンズ内部（光学系内部）のゴミ・キズ・汚れの混入。製造・組立由来の場合が多い。分解しないと除去・確認できない内部のものに限る。前玉・後玉の表面に付いたゴミ・汚れ・キズは L039。内部か表面か判断できない場合は L039。
+        record_type: failure
+        responsibility: manufacturer
+      L031:
+        name: カビ
+        description: レンズ内部・外部のカビ発生。湿気・保管環境起因。
+        record_type: failure
+        responsibility: user_or_unknown
+      L032:
+        name: 検査
+        description: お客様依頼またはメーカー判断による検査・点検作業を行った修理データ。
+        record_type: service
+        responsibility: user_or_unknown
+      L035:
+        name: ファームアップ
+        description: ファームウェアアップデートで対応した修理データ。ユーザが不具合を訴えていても、ファームアップで解消した場合はこのコードに分類する。
+        record_type: service
+        responsibility: user_or_unknown
+      L036:
+        name: その他
+        description: 上記いずれの分類にも該当しない修理データ。本コード体系の見直し検討対象。
+        record_type: failure
+        responsibility: manufacturer
+        role: other
+      L037:
+        name: 接続機器要因
+        description: 装着したカメラ本体・アクセサリー等の側に原因があり、レンズには異常がないと判断された修理データ。
+        record_type: failure
+        responsibility: user_or_unknown
+        role: connected_device
+      L039:
+        name: レンズ表面：ゴミ/汚れ/キズ
+        description: 前玉・後玉など、レンズの外側の表面に付着したゴミ・汚れ・指紋等、および表面のキズ。ユーザの使用環境で付いた可能性が高く、メーカー責任の範囲外とみなす。分解が必要なレンズ内部のゴミ・キズ・汚れは L028。内部か表面か判断できない場合もこちら。
+        record_type: failure
+        responsibility: user_or_unknown
+      L_UNK:
+        name: 判定不能
+        description: 情報不足等で分類できない修理データ。コメントが極端に短い、内容が抽象的等の場合。
+        record_type: unknown
+        responsibility: user_or_unknown
+        role: unknown
+  DC:
+    name: コンパクトカメラ
+    code_prefix: D
+    failure_categories:
+      D001:
+        name: 電源不良
+        description: 電源が入らない、起動しない等、電源系統全般の不具合。使用中にフリーズする・電源が切れるものは D003、電源ボタン自体の操作不良は D021、充電できないものは D002。
+        record_type: failure
+        responsibility: manufacturer
+      D010:
+        name: レンズ表面：ゴミ/汚れ/キズ
+        description: 前玉など、レンズの外側の表面に付着したゴミ・汚れ・指紋等、および表面のキズ。ユーザの使用環境で付いた可能性が高く、メーカー責任の範囲外とみなす。分解が必要なレンズ内部のものは D009。内部か表面か判断できない場合もこちら。
+        record_type: failure
+        responsibility: user_or_unknown
+      D020:
+        name: 画像不具合
+        description: 撮影画像の異常(線・点・ノイズ・色再現不良等)。原因部位が特定されていない画像の不具合。センサー自体の不良と判断されたものは D019、ピントの不良は D014、ゴミの写り込みは D017 / D018。
+        record_type: failure
+        responsibility: manufacturer
+      D042:
+        name: 検査
+        description: お客様依頼またはメーカー判断による検査・点検作業を行った修理データ。
+        record_type: service
+        responsibility: user_or_unknown
+      D043:
+        name: クリーニング
+        description: 清掃・クリーニング作業を行った修理データ。
+        record_type: service
+        responsibility: user_or_unknown
+      D045:
+        name: ファームアップ
+        description: ファームウェアアップデートで対応した修理データ。ユーザが不具合を訴えていても、ファームアップで解消した場合はこのコードに分類する。
+        record_type: service
+        responsibility: user_or_unknown
+      D046:
+        name: 接続機器要因
+        description: 接続・使用したアクセサリー(充電器・メモリーカード・ケーブル・スマートフォン等)の側に原因があり、本体には異常がないと判断された修理データ。
+        record_type: failure
+        responsibility: user_or_unknown
+        role: connected_device
+      D048:
+        name: その他
+        description: 上記いずれの分類にも該当しない修理データ。本コード体系の見直し検討対象。
+        record_type: failure
+        responsibility: manufacturer
+        role: other
+      D_UNK:
+        name: 判定不能
+        description: 情報不足等で分類できない修理データ。コメントが極端に短い、内容が抽象的等の場合。
+        record_type: unknown
+        responsibility: user_or_unknown
+        role: unknown
+  STB:
+    name: ストロボ(テスト用の架空製品)
+    code_prefix: S
+    environment_factors_override:
+      battery_leak:
+        name: 電池の液漏れ
+        description: 乾電池の液漏れによる腐食。
+        always_user_caused: true
+      heat:
+        always_user_caused: true
+    failure_categories:
+      S001:
+        name: 発光不良
+        description: 発光しない、光量が足りない。
+        record_type: failure
+        responsibility: manufacturer
+      S002:
+        name: クリーニング
+        description: 清掃作業を行った修理データ。
+        record_type: service
+        responsibility: user_or_unknown
+      S003:
+        name: 接続機器要因
+        description: 接続したカメラ側に原因がある。
+        record_type: failure
+        responsibility: user_or_unknown
+        role: connected_device
+      S004:
+        name: その他
+        description: その他。
+        record_type: failure
+        responsibility: manufacturer
+        role: other
+      S_UNK:
+        name: 判定不能
+        description: 情報不足。
+        record_type: unknown
+        responsibility: user_or_unknown
+        role: unknown
+environment_factors:
+  water:
+    name: 水濡れ・浸水
+    description: 雨、海水、水こぼし、プール、川、水中等による水分起因の故障。 結露と判断できる場合は humidity を優先。
+    always_user_caused: true
+  sand_dust:
+    name: 砂塵・粉塵
+    description: 砂、ホコリ、粉塵、土埃等の侵入による故障。 海岸・砂漠・建設現場等での使用が典型。
+    always_user_caused: false
+  impact:
+    name: 落下・衝撃
+    description: 落下、ぶつけ、強打等の物理的衝撃による故障。 外装の破損痕・歪みは判定の根拠になりやすい。
+    always_user_caused: true
+  heat:
+    name: 高温環境
+    description: 炎天下、車内放置、夏場の屋外長時間使用等の高温曝露による故障。
+    always_user_caused: false
+  cold:
+    name: 低温環境
+    description: 雪山、冬山、極寒地等の低温環境での使用による故障。
+    always_user_caused: false
+  humidity:
+    name: 高湿度・結露
+    description: 高湿度環境での使用、温度差による結露起因の故障。 明らかに液体としての水接触の場合は water を優先。
+    always_user_caused: false
+claim_reproduction_statuses:
+  reproduced:
+    name: 再現
+    description: 修理者が症状を確認した(原因・処置の記載、ユーザ提出の証左での確認を含む)。
+    counts_as_confirmed: true
+  partial:
+    name: 一部再現
+    description: 条件付き、または一部の症状だけ再現。
+    counts_as_confirmed: true
+  not_reproduced:
+    name: 再現せず
+    description: 確認したが症状を確認できなかった。予防交換、エラー履歴のみ・推定交換を含む。
+    counts_as_confirmed: false
+  not_mentioned:
+    name: 記載なし
+    description: 再現の有無が読み取れない。
+    counts_as_confirmed: false
+  out_of_scope:
+    name: 対象外
+    description: 別の機器で対応など、この製品では扱っていない。
+    counts_as_confirmed: false
+  request_only:
+    name: 依頼のみ
+    description: 点検・清掃などの依頼で、不具合の訴えがない。
+    counts_as_confirmed: false

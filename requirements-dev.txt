@@ -1,0 +1,4 @@
+# テストに必要なライブラリ(E-04)。テストは python -m pytest tests で実行する。
+-r requirements.txt
+pytest>=8.0
+requests-mock>=1.11
