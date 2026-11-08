@@ -90,6 +90,7 @@ IR_rep_categorize_anomaly/
 │   │       └── README.md             シナリオの一覧
 │   └── test_*.py                   要件定義書 第11節の表のとおり
 └── docs/
+    ├── 20261106_handoff.md               引き継ぎ資料(残っている問題・次の作業)
     ├── 20261105_requirements.md          要件定義書(正本)
     ├── 20261105_repo-structure.md        本書
     ├── 20261105_global-part-trend-requirements-draft.md  たたき台(決定の経緯)
@@ -210,5 +211,5 @@ Dify に依存しない部分から作る。解析部は「分類済みのデー
 | 4. 分類 | 実装済み(2026-11-05)。`classify` コマンド、分類用プロンプト初版、Dify の手順書。**会社PCでの確認待ち** |
 | 5. 対話式の実行 | 実装済み(2026-11-05)。`python anomaly_cli.py` で y / n で最後まで、`run --yes` で質問なし |
 | 6. 品質と要約 | 実装済み(2026-11-05)。抜き取り確認・言語別指標・`evaluate`・`compare-runs`・`summarize`、Windows 向けの手順書 |
-| 次 | 会社PCで確認(`docs/handoff/20261105_windows_steps.md`)。シリアル変換ツールは会社PCで実装 |
+| 次 | 会社PCで確認(`docs/handoff/20261105_windows_steps.md`)。シリアル変換ツールは会社PCで実装。残っている問題と次の作業は `docs/20261106_handoff.md`(2026-11-06) |
 | (別ツール)シリアル変換 | 要件定義済み。会社PCで実装する |

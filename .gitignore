@@ -10,8 +10,8 @@ __pycache__/
 .env
 
 # 実行結果・キャッシュ(ローカル作業フォルダを使わない場合の置き場所。O-01, G-16)
-outputs/
-cache/
+/outputs/
+/cache/
 
 # OS・エディタ
 .DS_Store
