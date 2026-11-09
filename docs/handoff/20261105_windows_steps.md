@@ -1,6 +1,7 @@
 # Windows 側の作業手順(担当者向け) — 全世界修理データの傾向解析
 
 - 作成日: 2026-11-05(Mac 側で作成)
+- 更新: 2026-11-09(手順4・手順5に、除外の確認を追加)
 - 作業のルールは `20261105_windows_rules.md`(先に読む)
 - 例のフォルダ: コード `C:\work\IR_rep_categorize_anomaly\`、ローカル作業フォルダ `C:\work\anomaly_local\`
 
@@ -65,23 +66,32 @@ python anomaly_cli.py classify --input tests\fixtures\synthetic\repairs.csv --lo
 python anomaly_cli.py analyze  --classified C:\work\anomaly_local\outputs\<日時> --local-dir C:\work\anomaly_local
 ```
 
+- 確認: dry-run の画面に `除外 7 件` と理由別の内訳が出る(架空データには、除外される行をわざと7行入れてある)。実行フォルダに `excluded_rows.csv` ができる。
 - 確認: `分類不可 0 件`。実行フォルダの `failures.csv` で、中国語・韓国語の修理にもコードと日本語訳が付いている。`combos\X100__P-001\report.md` が開ける。
 
 ## 手順5: 実データ 30〜50 件
 
 1. 実データから 30〜50 件を抜き出した CSV(UTF-8)を `C:\work\anomaly_local\data\` に置く。日本(CMJ)と海外の両方を含める。
-2. 実行:
+2. 先に `--dry-run` を付けて実行し、画面の「除外:」の行を見る。除外が多いときは、下の表で原因を探し、実行フォルダの `excluded_rows.csv`(行番号・理由・問題の値)で該当する行を確かめる。
+
+| 画面の理由 | よくある原因 | 対処 |
+|---|---|---|
+| 〇〇が空 | `input_columns.yaml` で対応づけた列が、値の入っていない別の列になっている | 列名を確かめる |
+| 受付日が読めない | 日付の書き方が `2026-01-05`・`2026/1/5`(時刻付きも可)・Excel の日付の数値 以外(例: `01/05/2026`、`2026年1月5日`、`20260105`) | CSV を作るときに日付の書き方をそろえる。そろえられなければ Mac 側に書き方を報告する |
+| コード体系に無い製品種別 | `事業コード` の値が `ML`・`LENS`・`DC` と完全には一致しない(小文字、全角、別の呼び方など) | 値をそろえる。別の値を使う必要があれば Mac 側に報告する |
+
+3. 除外に問題が無ければ、`--dry-run` を外して実行:
 
 ```
 python anomaly_cli.py classify --input C:\work\anomaly_local\data\<ファイル>.csv --local-dir C:\work\anomaly_local
 ```
 
-3. 実行フォルダの次を見る。
+4. 実行フォルダの次を見る。
    - `sample_check.xlsx`: 原文・日本語訳・付いたコードを見て、明らかにおかしい行の「確認」欄に × を付ける。
    - `language_metrics.csv`: 言語別の判定不能・分類不可の割合
    - `validation_issues.csv`: 分類不可の理由
-4. 問題があれば `prompts\classify_prompt.md` を直し、Dify に貼り直して、もう一度実行する(手順5を繰り返す)。
-5. Mac 側への報告: × の数(言語別)、判定不能の割合(言語別)、分類不可の件数と理由、架空の例に言い換えた問題の例。
+5. 問題があれば `prompts\classify_prompt.md` を直し、Dify に貼り直して、もう一度実行する(手順5を繰り返す)。
+6. Mac 側への報告: 除外の内訳(理由別の件数と、値の書き方)、× の数(言語別)、判定不能の割合(言語別)、分類不可の件数と理由、架空の例に言い換えた問題の例。
 
 ## 手順6: 日本データの評価・内部コメントの比較
 
