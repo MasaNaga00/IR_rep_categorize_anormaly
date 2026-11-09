@@ -312,6 +312,8 @@ def main(argv=None) -> int:
         return 1
     summ = merge_serial(loaded.records, results, settings.usage_max_months)
     print(f"入力: {a.input}({len(loaded.records)} 件、除外 {len(loaded.excluded)} 件)")
+    for line in loaded.excluded_summary_lines(list_file=None):   # I-05a(merge-serial は一覧のファイルを書かない)
+        print(line)
     for line in summ.summary_lines():
         print(line)
     unk = unknown_warnings(summ)

@@ -4,7 +4,7 @@
                                  [--internal-comments default|all|none] [--batch-size N] [--dry-run] [--no-cache]
                                  [--output-dir <実行フォルダ>]
 
-出力(実行フォルダ): raw/、classifications.csv、failures.csv、environments.csv、classify_failed.csv、
+出力(実行フォルダ): excluded_rows.csv、raw/、classifications.csv、failures.csv、environments.csv、classify_failed.csv、
 validation_issues.csv、sample_check.xlsx、language_metrics.csv、run_meta.json。続けて analyze --classified <実行フォルダ> で解析できる。
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ from .classify.runner import ClassifyResult, classify_records
 from .codebook import Codebook, CodebookError, load_codebook
 from .constants import INTERNAL_MODES
 from .dify_client import KEY_CLASSIFY, DifyClient
-from .input_loader import InputError, LoadResult, load_column_config, load_input
+from .input_loader import EXCLUDED_FIELDS, InputError, LoadResult, load_column_config, load_input
 from .local_config import resolve_paths
 from .outputs.files import write_classified, write_csv, write_json
 from .serial_merge import MergeSummary, SerialResultError, load_serial_results, merge_serial, result_column_names
@@ -119,7 +119,10 @@ def main(argv=None, client=None) -> int:
     cache = NullCache() if a.no_cache else ClassifyCache(
         paths.cache_dir, cache_signature(cb.sha256, prompt_sha, internal_setting(s, a.internal_comments)))
 
+    write_csv(out / "excluded_rows.csv", EXCLUDED_FIELDS, loaded.excluded_rows())          # I-05a
     print(f"入力: {a.input}({len(loaded.records)} 件、除外 {len(loaded.excluded)} 件、組み合わせ {len(loaded.combos())} 個)")
+    for line in loaded.excluded_summary_lines():
+        print(line)
 
     def progress(done, total):
         print(f"\r  分類中: {done} / {total} 件", end="", flush=True)

@@ -24,10 +24,10 @@ from .classify.runner import ClassifyResult, classify_records
 from .classify_cmd import internal_setting, run_meta, write_outputs
 from .codebook import CodebookError, load_codebook
 from .dify_client import KEY_CLASSIFY, KEY_SUMMARY, DifyClient
-from .input_loader import EXCLUDE_REASON_NAMES, InputError, llm_comments, load_column_config, load_input
+from .input_loader import EXCLUDED_FIELDS, InputError, llm_comments, load_column_config, load_input
 from .lang import detect_lang
 from .local_config import ENV_VAR, local_dir_from, resolve_paths
-from .outputs.files import read_classified, write_classified, write_json
+from .outputs.files import read_classified, write_classified, write_csv, write_json
 from .serial_merge import SerialResultError, load_serial_results, merge_serial, result_column_names
 from .settings import Settings, SettingsError, load_settings, parse_settings
 from .state import STAGE_NAMES, RunState, find_unfinished, load_state
@@ -203,8 +203,9 @@ class Session:
         L = self.loaded
         self.c.say(f"[1] 入力: {path}")
         self.c.say(f"  件数: {L.total_rows} 行(読み込み {len(L.records)} 件、除外 {len(L.excluded)} 件)")
-        for reason, n in L.excluded_counts().items():
-            self.c.say(f"    除外: {EXCLUDE_REASON_NAMES[reason]} {n} 件")
+        write_csv(self.run_dir / "excluded_rows.csv", EXCLUDED_FIELDS, L.excluded_rows())     # I-05a
+        for line in L.excluded_summary_lines(indent="    "):
+            self.c.say(line)
         if not L.has_serial_column:
             self.c.say(f"  注意: シリアルの列({self.columns['serial']})がありません(使用期間・ロットの解析はできません)")
         combos = L.combos()

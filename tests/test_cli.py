@@ -72,11 +72,11 @@ def test_U01_U03_full_interactive(local):
     assert rc == 0, con.text
     run = _only_run(local)
     t = con.text
-    for s in ("[1] 入力:", "製品×部番: 2 個", "言語別:", "修理IDが重複している行: 2 行", "[2] 分類の準備:",
+    for s in ("[1] 入力:", "除外: 受付日が読めない 1 件(値の例: '2026-13-01' 1件)", "製品×部番: 2 個", "言語別:", "修理IDが重複している行: 2 行", "[2] 分類の準備:",
               "Dify に送る 7 件", "[3] 分類を始めます", "分類できた 8 件", "[4] シリアル変換結果の結合", "ok 5",
               "[5] 解析の設定", "[6] 解析しています", "組み合わせ: 2 件", "[8] 完了しました"):
         assert s in t, s
-    for name in ("classifications.csv", "index.xlsx", "tableau_long.csv", "run_meta.json", "run.log", "state.json"):
+    for name in ("excluded_rows.csv", "classifications.csv", "index.xlsx", "tableau_long.csv", "run_meta.json", "run.log", "state.json"):
         assert (run / name).exists(), name
     st = load_state(run)
     assert st.done and st.input == CSV and st.serial_result == SERIAL

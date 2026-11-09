@@ -254,6 +254,7 @@ def test_U07_merge_serial_command(tmp_path, capsys):
     text = capsys.readouterr().out
     assert rc == 0
     assert "8 件、除外 7 件" in text and "ok 5" in text
+    assert "除外: コード体系に無い製品種別 1 件(値の例: 'XX' 1件)" in text and "excluded_rows.csv" not in text   # I-05a
     rows = read_csv(out)
     assert len(rows) == 8
     r = next(x for x in rows if x["rec_key"] == "000001")

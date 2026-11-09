@@ -2,6 +2,7 @@
 
 - 1行 = 1修理。修理IDが重複していても別の修理として扱い、行ごとに内部キー rec_key を付ける(I-02)。
 - 必須の値が無い行、受付日が読めない行、コード体系に無い製品種別の行は除外し、理由を記録する(I-05)。
+  除外した行の一覧は excluded_rows.csv に書き、画面には理由別の件数と値の例を出す(I-05a)。
 """
 from __future__ import annotations
 
@@ -51,6 +52,12 @@ EXCLUDE_REASON_NAMES = {
     "unknown_product": "コード体系に無い製品種別",
 }
 
+# I-05a: excluded_rows.csv の列。value は、受付日が読めない行は受付日の値、コード体系に無い製品種別の行は製品種別の値
+EXCLUDED_FIELDS = ("rec_key", "row_number", "repair_id", "sales_company", "reason", "reason_name", "value")
+# 画面に値の例を出す理由と、出す数(件数の多い順)
+VALUE_EXAMPLE_REASONS = ("invalid_received_date", "unknown_product")
+VALUE_EXAMPLE_TOP = 5
+
 _DATE_RE = re.compile(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T].*)?$")
 _EXCEL_RE = re.compile(r"^\d{4,6}(?:\.\d+)?$")
 _EXCEL_EPOCH = date(1899, 12, 30)
@@ -71,6 +78,35 @@ class LoadResult:
     def excluded_counts(self) -> dict[str, int]:
         c = Counter(e["reason"] for e in self.excluded)
         return {r: c[r] for r in EXCLUDE_REASONS if c[r]}
+
+    def excluded_value_counts(self, reason: str) -> Counter:
+        """I-05a: その理由で除外した行の値 → 件数。"""
+        return Counter(e["value"] for e in self.excluded if e["reason"] == reason)
+
+    def excluded_summary_lines(self, indent: str = "  ", list_file: str | None = "excluded_rows.csv") -> list[str]:
+        """I-05a: 画面に出す除外の内訳。理由別の件数と、受付日・製品種別は値の例(件数の多い順に上位5つ)。
+
+        list_file: 除外した行の一覧のファイル名(書かないコマンドでは None)。
+        """
+        lines = []
+        for reason, n in self.excluded_counts().items():
+            line = f"{indent}除外: {EXCLUDE_REASON_NAMES[reason]} {n} 件"
+            if reason in VALUE_EXAMPLE_REASONS:
+                vc = self.excluded_value_counts(reason)
+                ex = ", ".join(f"'{v}' {c}件" for v, c in vc.most_common(VALUE_EXAMPLE_TOP))
+                more = f" ほか {len(vc) - VALUE_EXAMPLE_TOP} 種類" if len(vc) > VALUE_EXAMPLE_TOP else ""
+                line += f"(値の例: {ex}{more})"
+            lines.append(line)
+        if self.excluded and list_file:
+            lines.append(f"{indent}  除外した行の一覧: {list_file}")
+        if self.total_rows and not self.records:
+            where = f"と {list_file} " if list_file else ""
+            lines.append(f"{indent}注意: すべての行が除外されました。上の理由{where}を確認してください。")
+        return lines
+
+    def excluded_rows(self) -> list[dict]:
+        """I-05a: excluded_rows.csv の行。"""
+        return [dict(e, reason_name=EXCLUDE_REASON_NAMES[e["reason"]]) for e in self.excluded]
 
     def duplicate_repair_ids(self) -> dict[str, int]:
         """I-02: 読み込んだ修理のうち、修理IDが2行以上ある ID → 行数。"""
@@ -165,8 +201,10 @@ def load_input(path: str | Path, product_ids, columns: dict | None = None) -> Lo
             if reason is None and rec["product_type"] not in products:
                 reason = "unknown_product"
             if reason is not None:
+                value = raw_date if reason == "invalid_received_date" else (
+                    rec["product_type"] if reason == "unknown_product" else "")
                 res.excluded.append({"rec_key": rec["rec_key"], "row_number": n, "repair_id": rec["repair_id"],
-                                     "reason": reason, "value": raw_date if "date" in reason else ""})
+                                     "sales_company": rec["sales_company"], "reason": reason, "value": value})
                 continue
             rec["received_date"] = d.isoformat()
             res.records.append(rec)

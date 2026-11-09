@@ -94,6 +94,10 @@ def test_dry_run_without_env(tmp_path, capsys):
     text = capsys.readouterr().out
     assert "dry-run" in text and "リクエスト 3 件(修理 7 件)" in text      # 空欄の1件は送らない
     assert not (out / "classifications.csv").exists()
+    # I-05a: dry-run でも除外の内訳を画面に出し、一覧を書く
+    assert "除外: コード体系に無い製品種別 1 件(値の例: 'XX' 1件)" in text and "excluded_rows.csv" in text
+    rows = read_csv(out / "excluded_rows.csv")
+    assert len(rows) == 7 and {r["reason"] for r in rows} >= {"unknown_product", "invalid_received_date"}
     assert json.loads((out / "run_meta.json").read_text(encoding="utf-8"))["dry_run"] is True
 
 

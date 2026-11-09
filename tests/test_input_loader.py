@@ -5,8 +5,8 @@ from datetime import date
 
 import pytest
 
-from anomaly.input_loader import (DEFAULT_COLUMNS, InputError, has_text, llm_comments, load_column_config,
-                                  load_input, normalize_serial, parse_date)
+from anomaly.input_loader import (DEFAULT_COLUMNS, EXCLUDED_FIELDS, InputError, has_text, llm_comments,
+                                  load_column_config, load_input, normalize_serial, parse_date)
 
 from .conftest import REPO_ROOT, SYNTH, write_csv
 
@@ -102,6 +102,37 @@ def test_I05_exclusion_reasons(loaded):
     }
     bad = next(e for e in loaded.excluded if e["reason"] == "invalid_received_date")
     assert bad["value"] == "2026-13-01"
+
+
+def test_I05a_excluded_rows_values(loaded):
+    rows = {e["rec_key"]: e for e in loaded.excluded_rows()}
+    assert set(rows["000009"]) == set(EXCLUDED_FIELDS)
+    assert rows["000009"]["value"] == "XX" and rows["000009"]["reason_name"] == "コード体系に無い製品種別"
+    assert rows["000008"]["value"] == "2026-13-01" and rows["000008"]["sales_company"] == "CEU"
+    assert rows["000007"]["value"] == ""                          # 必須の値が空の行は値なし
+    assert rows["000011"]["repair_id"] == ""
+
+
+def test_I05a_excluded_summary_lines(loaded):
+    t = "\n".join(loaded.excluded_summary_lines())
+    assert "除外: 製品名が空 1 件" in t
+    assert "除外: 受付日が読めない 1 件(値の例: '2026-13-01' 1件)" in t
+    assert "除外: コード体系に無い製品種別 1 件(値の例: 'XX' 1件)" in t
+    assert "除外した行の一覧: excluded_rows.csv" in t and "すべての行が除外" not in t
+    assert "excluded_rows.csv" not in "\n".join(loaded.excluded_summary_lines(list_file=None))
+
+
+def test_I05a_all_excluded_top5_values(tmp_path, codebook):
+    header = [DEFAULT_COLUMNS[k] for k in DEFAULT_COLUMNS]
+    rows = []
+    for i, (ptype, d) in enumerate([("ml", "2026-01-05")] * 3 + [("ML", f"0{m}/05/2026") for m in range(1, 8)]):
+        rows.append([f"A{i}", "X9", ptype, "P1", "", d, "CEU", "u", "r", "", ""])
+    res = load_input(write_csv(tmp_path / "x.csv", header, rows), codebook.product_ids())
+    assert not res.records and res.excluded_counts() == {"invalid_received_date": 7, "unknown_product": 3}
+    t = "\n".join(res.excluded_summary_lines())
+    assert "コード体系に無い製品種別 3 件(値の例: 'ml' 3件)" in t
+    assert "受付日が読めない 7 件(値の例: '01/05/2026' 1件, " in t and "ほか 2 種類" in t
+    assert "注意: すべての行が除外されました" in t
 
 
 def test_I06_serial_normalized(loaded):
