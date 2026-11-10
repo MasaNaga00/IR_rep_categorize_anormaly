@@ -59,6 +59,7 @@ VALUE_EXAMPLE_REASONS = ("invalid_received_date", "unknown_product")
 VALUE_EXAMPLE_TOP = 5
 
 _DATE_RE = re.compile(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T].*)?$")
+_YMD8_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})$")   # 区切りの無い8桁は、いつも年月日(YYYYMMDD)とみなす
 _EXCEL_RE = re.compile(r"^\d{4,6}(?:\.\d+)?$")
 _EXCEL_EPOCH = date(1899, 12, 30)
 _EXCEL_MIN, _EXCEL_MAX = 20000, 80000   # 1954年〜2119年。これ以外の数字は日付とみなさない
@@ -122,11 +123,11 @@ class LoadResult:
 
 
 def parse_date(value: str | None) -> date | None:
-    """I-04: YYYY-MM-DD、YYYY/MM/DD、YYYY/M/D(時刻付きも可)、Excel の日付シリアル値。読めなければ None。"""
+    """I-04: YYYY-MM-DD、YYYY/MM/DD、YYYY/M/D(時刻付きも可)、YYYYMMDD(8桁)、Excel の日付シリアル値。読めなければ None。"""
     s = unicodedata.normalize("NFKC", value or "").strip()
     if not s:
         return None
-    m = _DATE_RE.match(s)
+    m = _DATE_RE.match(s) or _YMD8_RE.match(s)
     if m:
         try:
             return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
