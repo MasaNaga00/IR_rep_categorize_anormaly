@@ -2,6 +2,7 @@
 
 - 書かれていないキーは既定値を使う。
 - 知らないキー、型・範囲の違反は SettingsError にまとめて送出する(違反はすべて列挙する)。
+- 使われなくなったキー(DEPRECATED)はエラーにせず、Settings.warnings に知らせる文を入れる。
 """
 from __future__ import annotations
 
@@ -31,7 +32,7 @@ DEFAULTS: dict[str, Any] = {
     "recent_months": 6,
     "recent_compare": "all_before",
     "usage_bins": [0, 7, 13, 25, 37],
-    "early_months": 12,
+    "usage_split_months": 24,
     "lot_neighbor": 3,
     "lot_spike_ratio": 2.0,
     "lot_min_n": 5,
@@ -41,6 +42,13 @@ DEFAULTS: dict[str, Any] = {
     "min_diff_pt": 10,
     "min_code_n": 5,
     "examples_per_finding": 3,
+    "summary_top_n": 10,
+}
+
+# 使われなくなったキー → 知らせる文(エラーにはしない)
+DEPRECATED: dict[str, str] = {
+    "early_months": ("early_months は使われなくなりました(2026-11-12)。使用期間の区切りは usage_split_months"
+                     "(この月数未満 / 以上で分ける。既定 24)で決まります。settings.yaml から early_months の行を消してください。"),
 }
 
 RECENT_COMPARE_VALUES = ("all_before", "same_length")
@@ -70,7 +78,7 @@ class Settings:
     recent_months: int
     recent_compare: str
     usage_bins: tuple[int, ...]
-    early_months: int
+    usage_split_months: int
     lot_neighbor: int
     lot_spike_ratio: float
     lot_min_n: int
@@ -80,7 +88,9 @@ class Settings:
     min_diff_pt: float
     min_code_n: int
     examples_per_finding: int
+    summary_top_n: int
     source: str = "(既定値)"
+    warnings: tuple[str, ...] = ()
 
     def as_dict(self) -> dict:
         """run_meta.json 用(O-05)。settings.yaml と同じ形にする。"""
@@ -147,7 +157,7 @@ def _check(data: dict) -> list[str]:
     if (not isinstance(bins, list) or len(bins) < 2 or not all(_is_int(b) and b >= 0 for b in bins)
             or bins[0] != 0 or any(b2 <= b1 for b1, b2 in zip(bins, bins[1:]))):
         errs.append(f"usage_bins: 0 から始まる、増えていく整数のリスト(2個以上)にしてください({bins!r})")
-    int_min("early_months", 1)
+    int_min("usage_split_months", 1)
     int_min("lot_neighbor", 1)
     num_range("lot_spike_ratio", 1, 1000)
     int_min("lot_min_n", 1)
@@ -157,6 +167,7 @@ def _check(data: dict) -> list[str]:
     num_range("min_diff_pt", 0, 100)
     int_min("min_code_n", 1)
     int_min("examples_per_finding", 0)
+    int_min("summary_top_n", 1)
     return errs
 
 
@@ -165,7 +176,8 @@ def parse_settings(raw: dict | None, source: str = "(既定値)") -> Settings:
     raw = raw or {}
     if not isinstance(raw, dict):
         raise SettingsError(source, ["settings.yaml の最上位が辞書ではありません"])
-    errs = [f"不明な項目があります: {k}" for k in raw if k not in DEFAULTS]
+    errs = [f"不明な項目があります: {k}" for k in raw if k not in DEFAULTS and k not in DEPRECATED]
+    warnings = tuple(DEPRECATED[k] for k in raw if k in DEPRECATED)
     for k, v in raw.items():
         if k in DEFAULTS:
             data[k] = v
@@ -188,7 +200,7 @@ def parse_settings(raw: dict | None, source: str = "(既定値)") -> Settings:
         recent_months=data["recent_months"],
         recent_compare=data["recent_compare"],
         usage_bins=tuple(data["usage_bins"]),
-        early_months=data["early_months"],
+        usage_split_months=data["usage_split_months"],
         lot_neighbor=data["lot_neighbor"],
         lot_spike_ratio=float(data["lot_spike_ratio"]),
         lot_min_n=data["lot_min_n"],
@@ -198,7 +210,9 @@ def parse_settings(raw: dict | None, source: str = "(既定値)") -> Settings:
         min_diff_pt=float(data["min_diff_pt"]),
         min_code_n=data["min_code_n"],
         examples_per_finding=data["examples_per_finding"],
+        summary_top_n=data["summary_top_n"],
         source=source,
+        warnings=warnings,
     )
 
 

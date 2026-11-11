@@ -43,8 +43,8 @@ def run_checks(paths) -> list[CheckItem]:
         items.append(CheckItem("列の対応づけ", str(paths.columns), False, errors=[str(e)]))
 
     try:
-        load_settings(paths.settings)
-        items.append(CheckItem("解析の設定", str(paths.settings), True, "既定値・閾値"))
+        st = load_settings(paths.settings)
+        items.append(CheckItem("解析の設定", str(paths.settings), True, "既定値・閾値", warnings=list(st.warnings)))
     except SettingsError as e:
         items.append(CheckItem("解析の設定", str(paths.settings), False, errors=e.errors))
     return items

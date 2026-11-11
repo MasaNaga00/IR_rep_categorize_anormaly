@@ -47,8 +47,10 @@ def codebook():
 
 @pytest.fixture(scope="session")
 def settings():
+    """架空データ(synth_classified.py)は、使用期間を「12か月以内 / 13か月以上」で比べる前提で作ってある。
+    そのため、使用期間の区切り(既定 24)を 13 にする(13か月未満 = 12か月以内)。"""
     from anomaly.settings import parse_settings
-    return parse_settings(None)
+    return parse_settings({"usage_split_months": 13})
 
 
 @pytest.fixture(scope="session")

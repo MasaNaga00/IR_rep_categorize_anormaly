@@ -14,7 +14,8 @@ from ..settings import Settings
 EMPTY = "(データなし)"
 
 
-def write_workbook(path: Path, sheets: dict[str, list[dict]]) -> Path:
+def write_workbook(path: Path, sheets: dict[str, list[dict]], before_save=None) -> Path:
+    """before_save: 保存の前に wb を受け取って呼ぶ関数(サマリーシートを先頭に足すため。O-07)。"""
     from openpyxl import Workbook
     from openpyxl.styles import Font
 
@@ -40,6 +41,8 @@ def write_workbook(path: Path, sheets: dict[str, list[dict]]) -> Path:
         for i, h in enumerate(headers, start=1):
             width = max([len(str(h))] + [len(str(r.get(h) if r.get(h) is not None else "")) for r in rows[:200]])
             ws.column_dimensions[ws.cell(1, i).column_letter].width = min(60, max(8, width * 1.6))
+    if before_save is not None:
+        before_save(wb)
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
     return path

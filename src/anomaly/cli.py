@@ -36,7 +36,7 @@ SECONDS_PER_CALL = 30          # 所要時間の目安(Dify の1回の呼び出�
 EDITABLE = [                   # 段階5で聞き直す設定(キー, 説明)
     ("recent_months", "直近の期間(か月)"),
     ("recent_compare", "直近と比べる期間(all_before / same_length)"),
-    ("early_months", "使用期間の「初期」(か月以内)"),
+    ("usage_split_months", "使用期間の区切り(製造年月から受付日までの月数。この月数未満 / 以上で分ける)"),
     ("usage_bins", "使用期間の区切り(開始月をカンマ区切り)"),
     ("lot_min_n", "ロット(まとまり)の最低件数"),
     ("lot_window", "まとめるロットの数"),
@@ -160,6 +160,8 @@ class Session:
             self.codebook = load_codebook(self.paths.codebook)
             self.base_settings = load_settings(self.paths.settings)
             self.columns = load_column_config(self.paths.columns)
+            for w in self.base_settings.warnings:
+                self.c.say(f"注意: {w}")
         except (CodebookError, SettingsError, ValueError) as e:
             self.c.say(f"NG: 設定ファイルに問題があります: {e}")
             self.c.say("対処: python anomaly_cli.py check で問題の一覧を確認し、ローカル作業フォルダの設定ファイルを直してください。")

@@ -25,7 +25,8 @@ def test_E07_defaults_match_section12():
     assert (s.rare_code_min, s.region_diff_note_pt) == (5, 20)
     assert (s.concentration_high_pct, s.concentration_low_pct) == (50, 30)
     assert (s.recent_months, s.recent_compare) == (6, "all_before")
-    assert s.usage_bins == (0, 7, 13, 25, 37) and s.early_months == 12
+    assert s.usage_bins == (0, 7, 13, 25, 37) and s.usage_split_months == 24
+    assert s.summary_top_n == 10 and s.warnings == ()
     assert (s.lot_neighbor, s.lot_spike_ratio, s.lot_min_n, s.lot_window) == (3, 2.0, 5, 3)
     assert (s.min_group_n, s.alpha, s.min_diff_pt, s.min_code_n) == (30, 0.05, 10, 5)
 
@@ -38,14 +39,21 @@ def test_E07_repository_settings_yaml_equals_defaults():
     assert set(raw) == set(DEFAULTS)   # すべての項目が書かれている
 
 
+def test_A40_deprecated_early_months_is_warning_not_error(tmp_path):
+    """古いローカル作業フォルダの settings.yaml に early_months が残っていても、エラーにせず知らせる。"""
+    s = load_settings(_write(tmp_path, {"early_months": 12}))
+    assert s.usage_split_months == 24
+    assert len(s.warnings) == 1 and "usage_split_months" in s.warnings[0]
+
+
 def test_E07_missing_file_uses_defaults(tmp_path):
     assert load_settings(tmp_path / "none.yaml").batch_size == 10
     assert load_settings(None).batch_size == 10
 
 
 def test_E07_partial_override(tmp_path):
-    s = load_settings(_write(tmp_path, {"recent_months": 3, "early_months": 6}))
-    assert s.recent_months == 3 and s.early_months == 6
+    s = load_settings(_write(tmp_path, {"recent_months": 3, "usage_split_months": 6}))
+    assert s.recent_months == 3 and s.usage_split_months == 6
     assert s.batch_size == 10              # 書かなかった項目は既定値
     assert s.source.endswith("settings.yaml")
 

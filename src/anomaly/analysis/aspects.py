@@ -322,10 +322,10 @@ def usage(combo: ComboData, s: Settings) -> AspectResult:
                 cross.append({"区切り": lab, "コード": c, "名称": combo.name(c), "件数": cc[c], "割合(%)": pct(cc[c], len(recs))})
     ar.tables["使用期間_クロス"] = cross
 
-    e = s.early_months
-    name_a, name_b = f"使用期間{e}か月以内", f"使用期間{e + 1}か月以上"
+    e = s.usage_split_months
+    name_a, name_b = f"使用期間{e}か月未満", f"使用期間{e}か月以上"
     comp = _two_group("usage", f"{name_a} と {name_b}", name_a, name_b,
-                      [r for r in usable if r["usage_months"] <= e], [r for r in usable if r["usage_months"] > e], combo, s)
+                      [r for r in usable if r["usage_months"] < e], [r for r in usable if r["usage_months"] >= e], combo, s)
     ar.comparisons = [comp]
     ar.judgement = comp.judgement
     ar.tables["使用期間_比較"] = comparison_rows(comp, combo.names)

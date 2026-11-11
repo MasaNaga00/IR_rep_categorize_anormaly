@@ -16,9 +16,11 @@ from pathlib import Path
 from .analysis.aspects import ComboAnalysis, analyze_combo
 from .analysis.findings import JUDGEMENT_NAMES
 from .analysis.prepare import split_by_combo
+from .analysis.summary import build_summary
 from .codebook import Codebook
 from .outputs.excel import combo_sheets, index_rows, write_workbook
 from .outputs.files import combo_dir_name, write_json
+from .outputs.summary_sheet import add_summary_sheet
 from .outputs.tableau import write_tableau
 from .report.markdown import build_report
 from .settings import Settings
@@ -62,7 +64,8 @@ def analyze_records(records: list[dict], codebook: Codebook, s: Settings, run_da
         ca = analyze_combo(combo, codebook, s, run_date)
         folder = combo_dir_name(combo.model, combo.part_no)
         d = out / "combos" / folder
-        write_workbook(d / "tables.xlsx", combo_sheets(ca, s, info))
+        sm = build_summary(ca, s, run_date)                               # A-40〜A-45
+        write_workbook(d / "tables.xlsx", combo_sheets(ca, s, info), before_save=lambda wb, sm=sm: add_summary_sheet(wb, sm))
         d.joinpath("report.md").write_text(build_report(ca, s, info), encoding="utf-8")
         write_json(d / "findings.json", findings_json(ca, s, info))
         results.append((ca, folder))
@@ -120,6 +123,8 @@ def main(argv=None) -> int:
     if (out / "index.xlsx").exists() or (out / "combos").exists():
         print(f"NG: 出力先に解析の結果が既にあります(上書きしません): {out}")
         return 1
+    for w in s.warnings:
+        print(f"注意: {w}")
     info["internal_excluded"] = list(s.internal_comment_excluded_sales_companies)
     results = analyze_records(records, cb, s, run_date, out, info)
     for line in summary_lines(results):

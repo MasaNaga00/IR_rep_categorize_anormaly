@@ -72,7 +72,7 @@ def test_A14_usage_early_below_threshold(excess, codebook):
     m9 = comp.result.by_code()["M009"]
     assert round(m9.pct_a, 1) == 20.0 and round(m9.pct_b, 1) == 12.0
     assert comp.judgement == NO_DIFFERENCE
-    s = parse_settings({"min_diff_pt": 5})                     # 閾値を下げれば注目点になる
+    s = parse_settings({"min_diff_pt": 5, "usage_split_months": 13})   # 閾値を下げれば注目点になる
     ca = analyze_combo(_combo(codebook, with_recent_excess("M009", 60), s), codebook, s, RUN_DATE)
     f = ca.usage.comparisons[0].findings[0]
     assert (f.code, f.higher) == ("M009", "a")
@@ -177,7 +177,7 @@ def test_A12_usage_tables(bal):
     m1 = next(r for r in t["使用期間_コード別"] if r["コード"] == "M001")
     assert m1["中央値(か月)"] == 10.0 and m1["件数"] == 480
     assert bal.usage.facts["median"] == 10.0
-    assert bal.usage.comparisons[0].group_a == "使用期間12か月以内"
+    assert bal.usage.comparisons[0].group_a == "使用期間13か月未満"          # 13か月未満 = 12か月以内
 
 
 def test_A13c_usage_not_available(codebook, settings):
