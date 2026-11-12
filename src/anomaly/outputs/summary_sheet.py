@@ -43,38 +43,6 @@ PCT_FMT = '0.0"%"'
 # ロットのグラフの系列の色(上位5種類・その他・判定不能)
 LOT_COLORS = ["2E75B6", "ED7D31", "70AD47", "FFC000", "C00000", "A5A5A5", "D9D9D9"]
 ROW_CM = 0.53              # 1行の高さ(cm)の目安。グラフの位置の計算に使う
-
-# --- グラフの中の配置(2026-11-12 ユーザ要望。Excel の自動配置で凡例・題名が文字と重なったため) ---
-# Excel のグラフは「自動の位置から○文字ずらす」ができないため、題名・描画部分・凡例の位置を数値で決める。
-# 実際の Excel で足りなければ、下の数値を変える(1文字 = CHAR_CM cm として計算する)。
-CHAR_CM = 0.42                   # 1文字の高さの目安(cm)
-TITLE_GAP_CHARS = 1.5            # サマリーの横棒グラフ: 題名と目盛りの数字の間
-LEGEND_GAP_CHARS = 1.0           # サマリーの横棒グラフ: 軸の題名と凡例の間
-LOT_LEGEND_GAP_CHARS = 3.0       # 製造ロットのグラフ: 軸の題名と凡例の間
-LOT_CHART_HEIGHT_CM = 9.5 + LOT_LEGEND_GAP_CHARS * CHAR_CM   # 製造ロットのグラフの高さ(あけた分だけ高くする)
-
-
-def apply_chart_layout(ch, width_cm: float, height_cm: float, title: str, *, title_gap_chars: float,
-                       legend_gap_chars: float, legend_lines: int, axis_title_below: bool = True) -> None:
-    """題名を上の端に、凡例を下の端に置き、その間に描画部分(目盛りの数字を含む)を置く。位置はグラフの大きさに対する割合。"""
-    from openpyxl.chart.layout import Layout, ManualLayout
-
-    w, h = width_cm, height_cm
-    title_top, title_h = 0.15, 0.75                 # 題名(既定の 14pt 程度)
-    title_w = min(w * 0.9, 0.5 * len(title))        # 全角1文字 ≈ 0.5cm として中央に置く
-    legend_h = 0.5 * legend_lines + 0.15
-    bottom_margin = 0.15
-    axis_title_h = 0.6 if axis_title_below else 0.0
-    legend_top = h - bottom_margin - legend_h
-    plot_top = title_top + title_h + title_gap_chars * CHAR_CM
-    plot_bottom = legend_top - legend_gap_chars * CHAR_CM - axis_title_h
-    ch.title.layout = Layout(manualLayout=ManualLayout(xMode="edge", yMode="edge",
-                                                       x=max(0.0, (w - title_w) / 2 / w), y=title_top / h))
-    ch.plot_area.layout = Layout(manualLayout=ManualLayout(layoutTarget="outer", xMode="edge", yMode="edge",
-                                                           x=0.02, y=plot_top / h, w=0.96,
-                                                           h=max(0.2, (plot_bottom - plot_top) / h)))
-    ch.legend.layout = Layout(manualLayout=ManualLayout(xMode="edge", yMode="edge", x=0.05, y=legend_top / h,
-                                                        w=0.9, h=legend_h / h))
 DIFF_FMT = '+0.0;-0.0;0.0'
 
 
@@ -254,7 +222,7 @@ def add_summary_sheet(wb, sm: Summary, sheet_name: str = SHEET_NAME, index: int 
 
     # --- 上のグラフ(構成比。全期間 vs 直近)の位置 ---
     n_rows = b_last - b_first + 1
-    height_cm = max(9.0, 3.0 + 0.6 * n_rows) + (TITLE_GAP_CHARS + LEGEND_GAP_CHARS) * CHAR_CM   # あけた分だけ高くする
+    height_cm = max(9.0, 3.0 + 0.6 * n_rows)
     step = int(height_cm / ROW_CM) + 2
     charts_end = 5 + step * len(GROUPS)
 
@@ -281,8 +249,7 @@ def add_summary_sheet(wb, sm: Summary, sheet_name: str = SHEET_NAME, index: int 
         ch = BarChart()
         ch.type = "bar"
         ch.style = 10
-        title_text = f"{gname[g]}(構成比 %)"
-        ch.title = title_text
+        ch.title = f"{gname[g]}(構成比 %)"
         ch.y_axis.title = "構成比(%)"
         ch.y_axis.number_format = "0"
         ch.y_axis.majorGridlines = None
@@ -297,8 +264,6 @@ def add_summary_sheet(wb, sm: Summary, sheet_name: str = SHEET_NAME, index: int 
         ch.set_categories(Reference(ws, min_col=1, min_row=b_first, max_row=b_last))
         ch.legend.position = "b"
         ch.width, ch.height = 16, height_cm
-        apply_chart_layout(ch, 16, height_cm, title_text,
-                           title_gap_chars=TITLE_GAP_CHARS, legend_gap_chars=LEGEND_GAP_CHARS, legend_lines=1)
         ws.add_chart(ch, f"{CHART_COL}{anchor_row}")
         anchor_row += step
 
@@ -363,13 +328,10 @@ def _lot_section(ws, lc: LotChart | None, r: int, put, section, head_font) -> No
             ser.graphicalProperties.line.solidFill = LOT_COLORS[j % len(LOT_COLORS)]
         ch.set_categories(Reference(ws, min_col=1, min_row=first, max_row=last))
         ch.legend.position = "b"
-        ch.width, ch.height = max(18.0, min(34.0, 6.0 + 0.45 * len(lc.rows))), LOT_CHART_HEIGHT_CM
-        # 凡例は7つで2行になる。横軸の名前(製造年月)は斜めに出るため、その分も描画部分に含める
-        apply_chart_layout(ch, ch.width, ch.height, title, title_gap_chars=0.5,
-                           legend_gap_chars=LOT_LEGEND_GAP_CHARS, legend_lines=2)
+        ch.width, ch.height = max(18.0, min(34.0, 6.0 + 0.45 * len(lc.rows))), 9.5
         return ch
 
     head_row = first - 1                           # 表の見出しの行にそろえる
     ws.add_chart(chart(f"{lc.axis}ごとの修理件数(故障の種類の積み上げ)", 2, "修理件数", False), f"{CHART_COL}{head_row}")
     ws.add_chart(chart(f"{lc.axis}ごとの構成比(%)(件数 {lc.min_n} 件未満のロットは空欄)", 3 + k, "構成比(%)", True),
-                 f"{CHART_COL}{head_row + int(LOT_CHART_HEIGHT_CM / ROW_CM) + 2}")
+                 f"{CHART_COL}{head_row + int(9.5 / ROW_CM) + 2}")
