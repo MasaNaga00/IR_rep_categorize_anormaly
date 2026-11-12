@@ -114,3 +114,10 @@ def test_G04_is_japan(settings):
 def test_O05_as_dict_roundtrip():
     s = parse_settings({"recent_months": 4})
     assert parse_settings(s.as_dict()).as_dict() == s.as_dict()
+
+
+def test_A47_env_exclude_mode():
+    assert parse_settings(None).env_exclude_mode == "user_caused"
+    assert parse_settings({"env_exclude_mode": "any"}).env_exclude_mode == "any"
+    with pytest.raises(SettingsError):
+        parse_settings({"env_exclude_mode": "all"})

@@ -15,7 +15,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .constants import MFG_NOT_CONVERTED, MFG_RESULT_COLUMNS, MFG_STATUS_VALUES, MFG_WARNING_VALUES, SEP
+from .constants import (MFG_NO_USAGE_STATUSES, MFG_NOT_CONVERTED, MFG_RESULT_COLUMNS, MFG_STATUS_VALUES,
+                        MFG_WARNING_VALUES, SEP)
 from .input_loader import normalize_serial, parse_date
 
 YM_RE = re.compile(r"^(\d{4})-(0[1-9]|1[0-2])$")
@@ -261,7 +262,8 @@ def merge_serial(records: list[dict], results: SerialResults | None, usage_max_m
                 summ.not_converted_models[key[0]] += 1
         r["lot_code"], r["lot_order"], r["mfg_ym"] = value.lot_code, value.lot_order, value.mfg_ym
         r["mfg_status"], r["mfg_warning"] = value.mfg_status, value.mfg_warning
-        r["usage_months"], r["usage_status"] = usage_months(r["received_date"], value.mfg_ym, usage_max_months)
+        ym_for_usage = "" if value.mfg_status in MFG_NO_USAGE_STATUSES else value.mfg_ym   # S-08a
+        r["usage_months"], r["usage_status"] = usage_months(r["received_date"], ym_for_usage, usage_max_months)
         summ.status_counts[value.mfg_status] += 1
         summ.usage_counts[r["usage_status"]] += 1
         for w in filter(None, (x.strip() for x in value.mfg_warning.split(SEP))):

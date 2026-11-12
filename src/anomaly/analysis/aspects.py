@@ -14,6 +14,7 @@ import numpy as np
 from ..codebook import Codebook
 from ..constants import SEP
 from ..settings import Settings
+from .environment import env_entries
 from .findings import INSUFFICIENT, NOT_AVAILABLE, Comparison, aspect_judgement, judge
 from .prepare import FAILED_LABEL, UNKNOWN_LABEL, ComboData, failure_codes, is_failed, is_unknown
 from .stats import bh_adjust, compare
@@ -172,7 +173,7 @@ def overall(combo: ComboData, codebook: Codebook) -> AspectResult:
     factors = codebook.environment_factors(combo.product_type)
     env_counts, env_any = Counter(), 0
     for r in read:
-        fs = {e.get("factor") for e in (r.get("environment") or []) if e.get("factor")}
+        fs = {e["factor"] for e in env_entries(r)}             # 「該当なし」「不明」は数えない
         env_counts.update(fs)
         env_any += bool(fs)
     ar.tables["環境要因"] = (

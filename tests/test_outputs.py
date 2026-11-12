@@ -72,7 +72,7 @@ def test_O01_files_written(analyzed):
 def test_O04_tables_sheets(analyzed):
     out, _ = analyzed
     wb = openpyxl.load_workbook(out / "combos" / "X100__P-001" / "tables.xlsx", read_only=True)
-    assert wb.sheetnames == ["サマリー", "前提", "概要", "全体", "偏りの指標", "コード別(まとめる前)", "記載割合", "環境要因", "販社別", "再修理の可能性",
+    assert wb.sheetnames == ["サマリー(環境要因除く)", "サマリー", "前提", "概要", "全体", "偏りの指標", "コード別(まとめる前)", "記載割合", "環境要因", "販社別", "再修理の可能性",
                              "期間比較", "月別推移", "使用期間_分布", "使用期間_コード別", "使用期間_クロス", "使用期間_比較",
                              "ロット", "ロット_構成", "ロット_まとめ", "ロット_比較", "群の構成", "代表事例", "除外・変換不能"]
     ws = wb["期間比較"]

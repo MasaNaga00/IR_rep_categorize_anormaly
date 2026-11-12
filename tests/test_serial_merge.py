@@ -271,3 +271,16 @@ def test_U07_merge_serial_command_bad_result(tmp_path, capsys):
     p = _result(tmp_path, [["X100", "0512", "2026-03-10", "0512", "05", "24220", "2018-05", "done", ""]])
     assert main(["--input", str(SYNTH / "repairs.csv"), "--serial-result", str(p)]) == 1
     assert "NG:" in capsys.readouterr().out
+
+
+# --- S-08a: service_part(サービス部品のシリアル。2026-11-12 に会社PCの変換ツールで追加) ---
+
+def test_S08a_service_part_accepted_and_not_used_for_usage(tmp_path):
+    """mfg_status が service_part でもエラーにしない。mfg_ym が入っていても、使用期間には使わない。"""
+    p = _result(tmp_path, [["X100", "0512", "2026-03-10", "0512", "05", "24220", "2018-05", "service_part", ""]])
+    recs = [_rec()]
+    summ = merge_serial(recs, _load(p), 96)
+    r = recs[0]
+    assert r["mfg_status"] == "service_part" and r["mfg_ym"] == "2018-05"
+    assert (r["usage_months"], r["usage_status"]) == (None, "no_mfg_ym")
+    assert summ.status_counts["service_part"] == 1

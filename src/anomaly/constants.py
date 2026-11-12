@@ -27,7 +27,10 @@ INTERNAL_MODES = ("default", "all", "none")
 
 # --- シリアル変換結果(S-10〜S-14)。変換は別ツール(docs/20261105_serial-converter-requirements.md) ---
 MFG_RESULT_COLUMNS = ("serial_normalized", "lot_code", "lot_order", "mfg_ym", "mfg_status", "mfg_warning")
-MFG_STATUS_VALUES = ("ok", "prefix_only", "no_serial", "no_model_type", "not_in_table", "invalid")  # 変換ツールの SC-34
+MFG_STATUS_VALUES = ("ok", "prefix_only", "no_serial", "no_model_type", "not_in_table", "invalid",
+                     "service_part")      # 変換ツールの SC-34(service_part は 2026-11-12 に会社PCで追加)
+# 製造年月(mfg_ym)が入っていても、使用期間・ロットに使わない mfg_status(製品の製造年月を表さない。S-08a)
+MFG_NO_USAGE_STATUSES = ("service_part",)
 MFG_NOT_CONVERTED = "not_converted"     # 結合できなかった修理(この解析だけで使う値)
 MFG_WARNING_VALUES = ("no_reference_date", "after_reference", "serial_was_number")  # 変換ツールの SC-35
 

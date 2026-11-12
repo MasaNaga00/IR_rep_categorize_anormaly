@@ -10,6 +10,29 @@ from ..analysis.summary import (GROUP_ALL, GROUP_GE, GROUP_LT, GROUPS, PERIOD_AL
                                 LotChart, Summary)
 
 SHEET_NAME = "サマリー"
+ENV_SHEET_NAME = "サマリー(環境要因除く)"     # A-47。先頭(1枚目)に置く
+ENV_MODE_TEXT = {"user_caused": "落下・衝撃・水濡れは常に、ほかの要因は「通常では考えづらい使用」のときだけ除いています",
+                 "any": "環境要因の記述がある修理をすべて除いています"}
+
+
+def env_line(n_removed: int, removed_by: list, mode: str) -> str:
+    """A-47: 環境要因で除いた修理の件数(条件の行)。"""
+    by = "、".join(f"{name} {n}" for name, n in removed_by)
+    return (f"環境要因で除いた修理: {n_removed} 件" + (f"({by}。1件に複数の要因がある場合は重ねて数える)" if by else "")
+            + f"。{ENV_MODE_TEXT.get(mode, '')}(ユーザだけの記述も含む)。")
+
+
+def add_empty_sheet(wb, sheet_name: str, title: str, lines: list[str], index: int = 0) -> None:
+    """対象の修理が無い場合のサマリー(A-47)。"""
+    from openpyxl.styles import Font, PatternFill
+
+    ws = wb.create_sheet(sheet_name, index)
+    for col in range(1, 19):
+        ws.cell(1, col).fill = PatternFill("solid", fgColor=COLOR_TITLE)
+    ws.cell(1, 1, title).font = Font(bold=True, size=14, color="FFFFFF")
+    for i, t in enumerate(lines, start=2):
+        ws.cell(i, 1, t)
+    ws.column_dimensions["A"].width = 38
 CHART_COL = "R"            # グラフを置く列(表②の右)
 COLOR_TITLE = "1F4E79"
 COLOR_SECTION = "2E75B6"
@@ -31,12 +54,13 @@ def finding_sentence(fr: dict) -> str:
             f"(差 {fr['差(ポイント)']:+.1f} ポイント、補正後 {ptxt})")
 
 
-def add_summary_sheet(wb, sm: Summary) -> None:
+def add_summary_sheet(wb, sm: Summary, sheet_name: str = SHEET_NAME, index: int = 0, note: str = "") -> None:
+    """sheet_name のシートを index の位置に作る。note: 4行目に書く案内(なければ環境要因で除いた件数を書く)。"""
     from openpyxl.chart import BarChart, Reference
     from openpyxl.chart.series import SeriesLabel
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-    ws = wb.create_sheet(SHEET_NAME, 0)
+    ws = wb.create_sheet(sheet_name, index)
     wb.active = 0
     fill = lambda c: PatternFill("solid", fgColor=c)          # noqa: E731
     thin = Side(style="thin", color="BFBFBF")
@@ -70,12 +94,19 @@ def add_summary_sheet(wb, sm: Summary) -> None:
     # --- 見出しと条件 ---
     for col in range(1, 19):
         put(1, col, None, bg=COLOR_TITLE)
-    put(1, 1, f"{sm.model} × {sm.part_no} 修理傾向サマリー", font=Font(bold=True, size=14, color="FFFFFF"), bg=COLOR_TITLE)
+    suffix = "(環境要因を除く)" if sm.env_removed is not None else ""
+    put(1, 1, f"{sm.model} × {sm.part_no} 修理傾向サマリー{suffix}", font=Font(bold=True, size=14, color="FFFFFF"),
+        bg=COLOR_TITLE)
     put(2, 1, f"全期間: {sm.first_date or '-'} 〜 {sm.last_date or '-'}(受付日) / {pname[PERIOD_RECENT]}: "
               f"{sm.recent_from} 〜 {sm.recent_to}(実行日 {sm.run_date} の前月まで) / "
               f"使用期間 = 受付日の年月 − 製造年月({sm.split_months}か月未満 / 以上で分ける)")
     put(3, 1, "※ 構成比(割合)の比較で、故障率ではありません。構成比の分母は分類不可を除く修理(判定不能を含む)。"
               "色のセルは、決まった条件(A-14)で注目点になったもの。")
+
+    if sm.env_removed is not None:
+        put(4, 1, env_line(sm.env_removed, sm.env_removed_by, sm.env_mode), font=Font(bold=True, color="C00000"))
+    elif note:
+        put(4, 1, note)
 
     # --- 件数(A-44) ---
     r = 5
@@ -84,9 +115,11 @@ def add_summary_sheet(wb, sm: Summary) -> None:
     heads = ["区分", f"{pname[PERIOD_ALL]}", f"{pname[PERIOD_RECENT]}", "環境要因の記述あり\n全期間", "環境要因の記述あり\n直近"]
     for j, h in enumerate(heads, start=1):
         put(r, j, h, font=head_font, bg=COLOR_HEAD, align="center")
-    side = [("製造年月不明", sm.n_no_mfg), ("日付矛盾", sm.n_negative),
+    side = [("製造年月不明", sm.n_no_mfg), ("日付矛盾", sm.n_negative), ("サービス部品", sm.n_service),
             ("判定不能", sm.cells[(GROUP_ALL, PERIOD_ALL)].n_unknown), ("分類不可", sm.cells[(GROUP_ALL, PERIOD_ALL)].n_failed),
             ("製造年月が分かった割合", sm.mfg_known_pct)]
+    if sm.env_removed is not None:
+        side.insert(0, ("環境要因で除いた修理", sm.env_removed))
     for j, (h, _) in enumerate(side, start=7):
         put(r, j, h, font=head_font, bg=COLOR_HEAD, align="center")
     ws.row_dimensions[r].height = 48             # 折り返す見出しの行は高さを決めておく(グラフの位置がずれないように)
@@ -99,7 +132,7 @@ def add_summary_sheet(wb, sm: Summary) -> None:
             put(r + i, j, round(100.0 * c.env_any / c.base, 1) if c.base else 0.0, fmt=PCT_FMT, align="center")
     for j, (h, v) in enumerate(side, start=7):
         put(r + 1, j, v, fmt=PCT_FMT if h.endswith("割合") else None, align="center", font=Font(size=12))
-    put(r + 4, 7, "製造年月不明・日付矛盾は全件に含め、使用期間の群からは除いています。")
+    put(r + 4, 7, "製造年月不明・日付矛盾・サービス部品(シリアルが製品の製造年月を表さない)は全件に含め、使用期間の群・ロットからは除いています。")
     r += 6
 
     # --- ① 使用期間で比べる(A-42)---

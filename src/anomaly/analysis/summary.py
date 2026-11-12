@@ -17,6 +17,8 @@ from datetime import date
 
 from ..settings import Settings
 from .aspects import LOT_STATUSES, ComboAnalysis, pct, profile, sales_note, ym_index, ym_str
+from ..constants import MFG_NO_USAGE_STATUSES
+from .environment import has_env
 from .findings import INSUFFICIENT, Comparison, judge
 from .prepare import RARE_CODE, UNKNOWN_LABEL, ComboData, is_failed, is_unknown
 from .stats import bh_adjust, compare
@@ -94,6 +96,7 @@ class Summary:
     others_count: int                 # 「上記以外」にまとめた種類の数
     n_no_mfg: int
     n_negative: int
+    n_service: int
     mfg_known_pct: float
     axis_a: Comparison
     axis_b: dict                      # 群 → Comparison
@@ -102,6 +105,10 @@ class Summary:
     notes: list[str]
     min_group_n: int
     lot_chart: LotChart | None = None
+    # A-47: 環境要因を除いたサマリーのときだけ使う
+    env_removed: int | None = None             # 環境要因で除いた修理の件数(None = 除いていない)
+    env_removed_by: list = field(default_factory=list)   # [(要因の名前, 件数)]
+    env_mode: str = ""
 
     def small(self, g: str, p: str) -> bool:
         """A-44: 構成比の分母が min_group_n 未満の区分(参考扱い)。"""
@@ -128,7 +135,7 @@ def _cell(records: list[dict], combo: ComboData) -> CellStat:
         if is_unknown(r, combo.unknown_code):
             c.n_unknown += 1
         c.counts[_row_key(r, combo)] += 1
-        if any(e.get("factor") for e in (r.get("environment") or [])):
+        if has_env(r):
             c.env_any += 1
     return c
 
@@ -183,13 +190,15 @@ def build_summary(ca: ComboAnalysis, s: Settings, run_date: date) -> Summary:
         return i < lo and (before_lo is None or i >= before_lo)
 
     group_recs = {GROUP_ALL: list(combo.records), GROUP_LT: [], GROUP_GE: []}
-    n_no_mfg = n_negative = 0
+    n_no_mfg = n_negative = n_service = 0
     for r in combo.records:
         g = usage_group(r, split)
         if g:
             group_recs[g].append(r)
         elif r.get("usage_status") == "negative":
             n_negative += 1
+        elif r.get("mfg_status") in MFG_NO_USAGE_STATUSES:
+            n_service += 1                                 # サービス部品のシリアル(S-08a)。製造年月不明とは別に数える
         else:
             n_no_mfg += 1
     group_names = {GROUP_ALL: "全件", GROUP_LT: f"製造後{split}か月未満", GROUP_GE: f"製造後{split}か月以上"}
@@ -278,7 +287,7 @@ def build_summary(ca: ComboAnalysis, s: Settings, run_date: date) -> Summary:
         first_date=min((r["received_date"] for r in combo.records), default=None),
         last_date=max((r["received_date"] for r in combo.records), default=None),
         group_names=group_names, period_names=period_names, cells=cells, rows=rows, others_count=len(rest_codes),
-        n_no_mfg=n_no_mfg, n_negative=n_negative, mfg_known_pct=pct(known, n_all),
+        n_no_mfg=n_no_mfg, n_negative=n_negative, n_service=n_service, mfg_known_pct=pct(known, n_all),
         axis_a=axis_a, axis_b=axis_b, findings=findings, lot_spikes=list(ca.lot.facts.get("spikes", [])),
         notes=notes, min_group_n=s.min_group_n, lot_chart=build_lot_chart(ca, s))
 
@@ -290,7 +299,7 @@ LOT_OTHER = "__LOT_OTHER__"
 def build_lot_chart(ca: ComboAnalysis, s: Settings) -> LotChart | None:
     """A-46: 製造年月(無ければロットの頭桁)ごとに、上位5種類・その他・判定不能の件数と構成比。"""
     combo = ca.combo
-    with_ym = [r for r in combo.records if r.get("mfg_ym")]
+    with_ym = [r for r in combo.records if r.get("mfg_ym") and r.get("mfg_status") in LOT_STATUSES]   # service_part は使わない
     if with_ym:
         axis = "製造年月"
         lo, hi = min(ym_index(r["mfg_ym"]) for r in with_ym), max(ym_index(r["mfg_ym"]) for r in with_ym)

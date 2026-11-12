@@ -219,12 +219,12 @@ def test_A45_env_share(codebook):
 
 # --- O-07: シート ---
 
-def test_O07_summary_sheet_first_with_five_charts(codebook, tmp_path):
+def test_O07_summary_sheets_first_with_charts(codebook, tmp_path):
     s = parse_settings(None)
     analyze_records(excess_gen().recs, codebook, s, RUN_DATE, tmp_path)
     path = tmp_path / "combos" / "X100__P-001" / "tables.xlsx"
     wb = openpyxl.load_workbook(path)
-    assert wb.sheetnames[0] == "サマリー" and wb.sheetnames[1] == "前提"
+    assert wb.sheetnames[:3] == ["サマリー(環境要因除く)", "サマリー", "前提"]          # A-47: 環境要因除くが1枚目
     ws = wb["サマリー"]
     assert ws["A1"].value == "X100 × P-001 修理傾向サマリー"
     texts = [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
@@ -233,7 +233,7 @@ def test_O07_summary_sheet_first_with_five_charts(codebook, tmp_path):
     assert any(t.startswith("上記以外") for t in texts) or len([t for t in texts if t == "判定不能"]) >= 2
     with zipfile.ZipFile(path) as z:
         charts = [n for n in z.namelist() if n.startswith("xl/charts/chart")]
-    assert len(charts) == 5                                 # サマリーの3つ + ロットの2つ(A-46)
+    assert len(charts) == 10                                # 2枚のサマリー × (3つ + ロットの2つ)
     assert any(t.startswith("③ 製造ロットで比べる") for t in texts)
 
 
@@ -293,3 +293,74 @@ def test_A46_no_lot_info(codebook):
     g = Gen()
     g.add("M001", BEFORE)
     assert summarize(codebook, g.recs).lot_chart is None
+
+
+# --- A-47: 環境要因を除いたサマリー ---
+
+from anomaly.analysis.environment import exclusion_factors, has_env, split_by_environment  # noqa: E402
+
+
+def _env(factor, abnormal=False, source="user"):
+    return [{"factor": factor, "source": source, "abnormal_use": abnormal, "excerpt": ""}]
+
+
+def test_A47_exclusion_rules(codebook):
+    f = codebook.environment_factors("ML")
+    assert exclusion_factors({"environment": _env("impact")}, f, "user_caused") == ["impact"]   # ユーザだけの記述でも除く
+    assert exclusion_factors({"environment": _env("water", source="repair")}, f, "user_caused") == ["water"]
+    assert exclusion_factors({"environment": _env("heat")}, f, "user_caused") == []             # 通常の使用の高温は残す
+    assert exclusion_factors({"environment": _env("heat", abnormal=True)}, f, "user_caused") == ["heat"]
+    assert exclusion_factors({"environment": _env("heat")}, f, "any") == ["heat"]                # any ならすべて除く
+    assert exclusion_factors({"environment": _env("none") + _env("unknown")}, f, "any") == []   # 該当なし・不明は数えない
+    assert not has_env({"environment": _env("none")}) and has_env({"environment": _env("cold")})
+    kept, removed, by = split_by_environment(
+        [{"environment": _env("impact") + _env("water")}, {"environment": _env("impact")}, {"environment": []}], f, "user_caused")
+    assert (len(kept), len(removed)) == (1, 2) and by == [("落下・衝撃", 2), ("水濡れ・浸水", 1)]
+
+
+def _texts(ws):
+    return [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
+
+
+def test_A47_env_sheet_recounted_without_env_repairs(codebook, tmp_path):
+    g = balanced_gen()
+    for _ in range(30):
+        g.add("M020", BEFORE, 30, env=_env("impact"))                 # 落下・衝撃のある修理だけ M020
+    for _ in range(3):
+        g.add("M001", BEFORE, 30, env=_env("heat"))                    # 通常の使用の高温は残す
+    analyze_records(g.recs, codebook, parse_settings(None), RUN_DATE, tmp_path)
+    wb = openpyxl.load_workbook(tmp_path / "combos" / "X100__P-001" / "tables.xlsx")
+    env_ws, all_ws = wb["サマリー(環境要因除く)"], wb["サマリー"]
+    assert env_ws["A1"].value == "X100 × P-001 修理傾向サマリー(環境要因を除く)"
+    assert env_ws["A4"].value.startswith("環境要因で除いた修理: 30 件(落下・衝撃 30。")
+    assert "環境要因で除いた修理" in _texts(env_ws)                    # 件数の表の横にも出す
+    assert "レンズ通信不良" not in _texts(env_ws) and "レンズ通信不良" in _texts(all_ws)   # M020 は除いた側だけ
+    assert "サマリー(環境要因除く)" in all_ws["A4"].value
+    n_all = [c.value for c in all_ws[7]][1]
+    n_env = [c.value for c in env_ws[7]][1]
+    assert n_all - n_env == 30
+
+
+def test_A47_all_repairs_removed(codebook, tmp_path):
+    g = Gen()
+    for _ in range(5):
+        g.add("M001", BEFORE, 30, env=_env("water"))
+    analyze_records(g.recs, codebook, parse_settings(None), RUN_DATE, tmp_path)
+    wb = openpyxl.load_workbook(tmp_path / "combos" / "X100__P-001" / "tables.xlsx")
+    ws = wb["サマリー(環境要因除く)"]
+    assert "環境要因を除くと、対象の修理がありません。" in _texts(ws)
+    assert wb.sheetnames[1] == "サマリー"
+
+
+# --- S-08a: サービス部品のシリアル ---
+
+def test_S08a_service_part_counted_separately(codebook):
+    g = Gen()
+    for _ in range(6):
+        g.add("M001", BEFORE, 20)
+    r = g.add("M005", BEFORE, 20, mfg_status="service_part")
+    r.update(usage_months=None, usage_status="no_mfg_ym")            # 結合のとき使用期間を計算しない(S-08a)
+    sm = summarize(codebook, g.recs)
+    assert (sm.n_service, sm.n_no_mfg) == (1, 0)
+    assert sm.cells[(GROUP_ALL, PERIOD_ALL)].n == 7 and sm.cells[(GROUP_LT, PERIOD_ALL)].n == 6
+    assert sum(row.total for row in sm.lot_chart.rows) == 6         # ロットの表にも入れない

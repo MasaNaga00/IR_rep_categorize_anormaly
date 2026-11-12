@@ -44,6 +44,7 @@ DEFAULTS: dict[str, Any] = {
     "min_code_n": 5,
     "examples_per_finding": 3,
     "summary_top_n": 10,
+    "env_exclude_mode": "user_caused",
 }
 
 # 使われなくなったキー → 知らせる文(エラーにはしない)
@@ -53,6 +54,7 @@ DEPRECATED: dict[str, str] = {
 }
 
 RECENT_COMPARE_VALUES = ("all_before", "same_length")
+ENV_EXCLUDE_MODES = ("user_caused", "any")          # analysis/environment.py と同じ(A-47)
 
 
 class SettingsError(Exception):
@@ -91,6 +93,7 @@ class Settings:
     min_code_n: int
     examples_per_finding: int
     summary_top_n: int
+    env_exclude_mode: str
     source: str = "(既定値)"
     warnings: tuple[str, ...] = ()
 
@@ -171,6 +174,8 @@ def _check(data: dict) -> list[str]:
     int_min("min_code_n", 1)
     int_min("examples_per_finding", 0)
     int_min("summary_top_n", 1)
+    if data["env_exclude_mode"] not in ENV_EXCLUDE_MODES:
+        errs.append(f"env_exclude_mode: {' / '.join(ENV_EXCLUDE_MODES)} のどれかにしてください({data['env_exclude_mode']!r})")
     return errs
 
 
@@ -215,6 +220,7 @@ def parse_settings(raw: dict | None, source: str = "(既定値)") -> Settings:
         min_code_n=data["min_code_n"],
         examples_per_finding=data["examples_per_finding"],
         summary_top_n=data["summary_top_n"],
+        env_exclude_mode=data["env_exclude_mode"],
         source=source,
         warnings=warnings,
     )
