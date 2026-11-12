@@ -17,7 +17,7 @@ from anomaly.analysis.summary import (GROUP_ALL, GROUP_GE, GROUP_LT, OTHERS_ROW,
 from anomaly.analyze import analyze_records
 from anomaly.settings import parse_settings
 
-from .synth_classified import PATTERN, RUN_DATE, idx, make
+from .synth_classified import PATTERN, RUN_DATE, balanced, idx, make
 
 RECENT = idx(2025, 3)       # 直近に入る受付月
 BEFORE = idx(2024, 3)       # それ以前の受付月
@@ -52,7 +52,7 @@ def balanced_gen() -> Gen:
 
 def summarize(codebook, recs, **settings):
     s = parse_settings(settings or None)
-    combo = build_combo(recs[0]["model"], recs[0]["part_no"], recs, codebook, s.rare_code_min)
+    combo = build_combo(recs[0]["model"], recs[0]["part_no"], recs, codebook, s.rare_code_min, s.keep_top_codes)
     ca = analyze_combo(combo, codebook, s, RUN_DATE)
     return build_summary(ca, s, RUN_DATE)
 
@@ -131,8 +131,21 @@ def test_A41_top_n_and_others_row(codebook):
     assert keys == ["M001", "M005", OTHERS_ROW, UNKNOWN_ROW, TOTAL_ROW]
     others = _row(sm, OTHERS_ROW)
     assert others.name == "上記以外(3種類)"
-    assert any("内訳は「全体」シート" in t for t in sm.notes)
+    assert any(t.startswith("「上記以外」の内訳(全件・全期間): 画像不具合 40件、異音 24件、エラー 8件") for t in sm.notes)
     assert others.counts[(GROUP_ALL, PERIOD_ALL)] == 8 * (5 + 3 + 1)        # M008 + M009 + M002
+
+
+def test_A41_others_counts_codes_inside_rare(codebook):
+    """「その他(少数)」にまとめた種類は、中のコードの数で「○種類」と書く(1種類と数えない)。"""
+    g = balanced_gen()
+    for code in ("M003", "M007", "M016", "M017"):          # 1件ずつ(上位5種類より下なので「その他(少数)」に入る)
+        g.add(code, BEFORE, 30)
+    sm = summarize(codebook, g.recs, summary_top_n=2)
+    others = _row(sm, OTHERS_ROW)
+    assert others.name == "上記以外(7種類)"                 # M008・M009・M002 + まとめた4種類
+    assert sm.others_count == 7
+    note = next(t for t in sm.notes if t.startswith("「上記以外」の内訳"))
+    assert "動作不良 1件" in note and "シャッター不具合 1件" in note
 
 
 # --- 中立性: 差の無いデータで色が付かないこと(第11節) ---
@@ -206,7 +219,7 @@ def test_A45_env_share(codebook):
 
 # --- O-07: シート ---
 
-def test_O07_summary_sheet_first_with_three_charts(codebook, tmp_path):
+def test_O07_summary_sheet_first_with_five_charts(codebook, tmp_path):
     s = parse_settings(None)
     analyze_records(excess_gen().recs, codebook, s, RUN_DATE, tmp_path)
     path = tmp_path / "combos" / "X100__P-001" / "tables.xlsx"
@@ -220,4 +233,63 @@ def test_O07_summary_sheet_first_with_three_charts(codebook, tmp_path):
     assert any(t.startswith("上記以外") for t in texts) or len([t for t in texts if t == "判定不能"]) >= 2
     with zipfile.ZipFile(path) as z:
         charts = [n for n in z.namelist() if n.startswith("xl/charts/chart")]
-    assert len(charts) == 3
+    assert len(charts) == 5                                 # サマリーの3つ + ロットの2つ(A-46)
+    assert any(t.startswith("③ 製造ロットで比べる") for t in texts)
+
+
+# --- A-46: 製造ロット(製造年月)ごとの表 ---
+
+def test_A46_months_continuous_and_small_lots_blank(codebook):
+    g = Gen()
+    for _ in range(6):
+        g.add("M001", BEFORE, 20)                  # 製造 2022-07(6件)
+    for _ in range(2):
+        g.add("M005", BEFORE, 18)                  # 製造 2022-09(2件)
+    g.add("FAILED", BEFORE, 18)                    # 分類不可は数えない
+    g.add("M001", BEFORE)                          # 製造年月不明
+    lc = summarize(codebook, g.recs).lot_chart
+    assert lc.axis == "製造年月"
+    assert [r.label for r in lc.rows] == ["2022-07", "2022-08", "2022-09"]   # 修理の無い月も並べる
+    r7, r8, r9 = lc.rows
+    assert (r7.total, r8.total, r9.total) == (6, 0, 2)
+    assert r7.pcts["M001"] == 100.0 and r9.pcts["M005"] is None              # 5件未満は構成比を空欄
+    assert (lc.n_outside, lc.n_failed) == (1, 1)
+    assert [name for _, name in lc.series][-2:] == ["その他", "判定不能"]
+
+
+def test_A46_top5_series_and_other(codebook):
+    g = Gen()
+    for code, k in (("M001", 6), ("M005", 5), ("M008", 4), ("M009", 3), ("M002", 2), ("M003", 1), ("M007", 1)):
+        for _ in range(k):
+            g.add(code, BEFORE, 20)
+    lc = summarize(codebook, g.recs).lot_chart
+    assert [k for k, _ in lc.series][:5] == ["M001", "M005", "M008", "M009", "M002"]
+    assert lc.rows[0].counts["__LOT_OTHER__"] == 2                           # 6位以下はその他
+
+
+def test_A46_star_only_on_notable_lot(codebook):
+    neutral = summarize(codebook, balanced()).lot_chart
+    assert not any(r.star for r in neutral.rows)                              # 差の無いデータでは付かない
+    recs = balanced()
+    lot = idx(2022, 5)
+    for i in range(40):
+        recs.append(make(90000 + i, "M009", lot + 6, mfg_idx=lot))            # 2022-05 製造のロットに M009 を足す
+    lc = summarize(codebook, recs).lot_chart
+    starred = [r.label for r in lc.rows if r.star]
+    assert "2022-05★" in starred
+    assert all(r.label.startswith(("2022-04", "2022-05", "2022-06")) for r in lc.rows if r.star)  # 1ロット or まとまり
+
+
+def test_A46_prefix_only_uses_lot_code(codebook):
+    g = Gen()
+    for code in ("03", "01", "02"):
+        for _ in range(5):
+            g.add("M001", BEFORE, lot_code=code)
+    lc = summarize(codebook, g.recs).lot_chart
+    assert lc.axis == "ロット(頭桁)" and [r.label for r in lc.rows] == ["01", "02", "03"]
+
+
+def test_A46_no_lot_info(codebook):
+    g = Gen()
+    g.add("M001", BEFORE)
+    assert summarize(codebook, g.recs).lot_chart is None

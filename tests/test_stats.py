@@ -67,6 +67,21 @@ def test_A04_rare_codes_merged(codebook):
     assert c.name(RARE_CODE) == "その他(少数)"
 
 
+def test_A04_keep_top_codes_not_merged(codebook):
+    """上位 keep_top 種類は、件数が rare_code_min 未満でもまとめない。それより下の少数はまとめる。"""
+    counts = {"M001": 4, "M005": 3, "M008": 3, "M009": 2, "M002": 2, "M003": 1, "M007": 1}
+    recs, n = [], 0
+    for code, k in counts.items():
+        for _ in range(k):
+            n += 1
+            recs.append(make(n, code, 24300))
+    c = build_combo("X100", "P-001", recs, codebook, rare_code_min=5, keep_top=5)
+    assert c.categories == ["M001", "M005", "M008", "M002", "M009", RARE_CODE]    # 件数の多い順(同数はコード順)
+    assert c.category_of["M003"] == RARE_CODE and c.category_of["M007"] == RARE_CODE
+    c0 = build_combo("X100", "P-001", recs, codebook, rare_code_min=5, keep_top=0)
+    assert c0.categories == [RARE_CODE]                                           # 以前の動き
+
+
 def test_G20_unknown_and_failed(codebook):
     recs = [make(1, "M001", 24300), make(2, "UNK", 24300), make(3, "FAILED", 24300)]
     weird = make(4, "M001", 24300)

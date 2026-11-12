@@ -15,7 +15,7 @@ from .synth_classified import RUN_DATE, balanced, idx, make, with_recent_excess
 
 def _combo(codebook, recs, s=None):
     s = s or parse_settings(None)
-    return build_combo(recs[0]["model"], recs[0]["part_no"], recs, codebook, s.rare_code_min)
+    return build_combo(recs[0]["model"], recs[0]["part_no"], recs, codebook, s.rare_code_min, s.keep_top_codes)
 
 
 @pytest.fixture(scope="module")
@@ -305,7 +305,7 @@ def test_A15a_lot_bh_pooled_across_lots(codebook, settings):
 
 def test_A01_split_by_combo(codebook, settings):
     recs = balanced() + [make(90000 + i, "L001", idx(2025, 3), model="L200", part="P-777", product="LENS") for i in range(5)]
-    combos = split_by_combo(recs, codebook, settings.rare_code_min)
+    combos = split_by_combo(recs, codebook, settings.rare_code_min, settings.keep_top_codes)
     assert [c.key for c in combos] == [("X100", "P-001"), ("L200", "P-777")]
     assert combos[1].unknown_code == "L_UNK"
 

@@ -26,7 +26,7 @@ def test_E07_defaults_match_section12():
     assert (s.concentration_high_pct, s.concentration_low_pct) == (50, 30)
     assert (s.recent_months, s.recent_compare) == (6, "all_before")
     assert s.usage_bins == (0, 7, 13, 25, 37) and s.usage_split_months == 24
-    assert s.summary_top_n == 10 and s.warnings == ()
+    assert s.summary_top_n == 10 and s.warnings == () and s.keep_top_codes == 5
     assert (s.lot_neighbor, s.lot_spike_ratio, s.lot_min_n, s.lot_window) == (3, 2.0, 5, 3)
     assert (s.min_group_n, s.alpha, s.min_diff_pt, s.min_code_n) == (30, 0.05, 10, 5)
 

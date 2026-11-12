@@ -26,6 +26,7 @@ DEFAULTS: dict[str, Any] = {
     "random_seed": 42,
     "usage_max_months": 96,
     "rare_code_min": 5,
+    "keep_top_codes": 5,
     "concentration_high_pct": 50,
     "concentration_low_pct": 30,
     "region_diff_note_pt": 20,
@@ -72,6 +73,7 @@ class Settings:
     random_seed: int
     usage_max_months: int
     rare_code_min: int
+    keep_top_codes: int
     concentration_high_pct: float
     concentration_low_pct: float
     region_diff_note_pt: float
@@ -144,6 +146,7 @@ def _check(data: dict) -> list[str]:
     int_min("random_seed", 0)
     int_min("usage_max_months", 1)
     int_min("rare_code_min", 1)
+    int_min("keep_top_codes", 0)
     num_range("concentration_high_pct", 0, 100)
     num_range("concentration_low_pct", 0, 100)
     if _is_num(data["concentration_high_pct"]) and _is_num(data["concentration_low_pct"]) \
@@ -194,6 +197,7 @@ def parse_settings(raw: dict | None, source: str = "(既定値)") -> Settings:
         random_seed=data["random_seed"],
         usage_max_months=data["usage_max_months"],
         rare_code_min=data["rare_code_min"],
+        keep_top_codes=data["keep_top_codes"],
         concentration_high_pct=float(data["concentration_high_pct"]),
         concentration_low_pct=float(data["concentration_low_pct"]),
         region_diff_note_pt=float(data["region_diff_note_pt"]),

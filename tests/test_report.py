@@ -17,7 +17,7 @@ INFO = {"run_date": RUN_DATE.isoformat(), "serial_result": "x.csv", "internal_ex
 
 
 def _ca(codebook, settings, recs):
-    c = build_combo(recs[0]["model"], recs[0]["part_no"], recs, codebook, settings.rare_code_min)
+    c = build_combo(recs[0]["model"], recs[0]["part_no"], recs, codebook, settings.rare_code_min, settings.keep_top_codes)
     return analyze_combo(c, codebook, settings, RUN_DATE)
 
 

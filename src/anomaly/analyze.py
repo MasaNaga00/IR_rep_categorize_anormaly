@@ -60,7 +60,7 @@ def analyze_records(records: list[dict], codebook: Codebook, s: Settings, run_da
     info = {"run_date": run_date.isoformat(), **(run_info or {})}
     info["warnings"] = list(info.get("warnings", [])) + staleness_warning(records, s, run_date)
     results = []
-    for combo in split_by_combo(records, codebook, s.rare_code_min):
+    for combo in split_by_combo(records, codebook, s.rare_code_min, s.keep_top_codes):
         ca = analyze_combo(combo, codebook, s, run_date)
         folder = combo_dir_name(combo.model, combo.part_no)
         d = out / "combos" / folder

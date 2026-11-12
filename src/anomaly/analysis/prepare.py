@@ -66,7 +66,10 @@ class ComboData:
         return self.names.get(code, code)
 
 
-def build_combo(model: str, part_no: str, records: list[dict], codebook: Codebook, rare_code_min: int) -> ComboData:
+def build_combo(model: str, part_no: str, records: list[dict], codebook: Codebook, rare_code_min: int,
+                keep_top: int = 0) -> ComboData:
+    """A-04: rare_code_min 件未満のコードは「その他(少数)」にまとめる。ただし件数の多い上位 keep_top 種類は、
+    少なくてもまとめない(keep_top_codes。2026-11-12 ユーザ決定)。"""
     product = records[0]["product_type"]
     unknown_code = codebook.code_by_role(product, "unknown")
     c = ComboData(model, part_no, product, records, unknown_code)
@@ -78,7 +81,8 @@ def build_combo(model: str, part_no: str, records: list[dict], codebook: Codeboo
         else:
             c.valid.append(r)
     c.raw_counts = Counter(r["primary_code"] for r in c.valid)
-    frequent = [code for code, n in c.raw_counts.items() if n >= rare_code_min]
+    ranked = sorted(c.raw_counts, key=lambda code: (-c.raw_counts[code], code))
+    frequent = [code for i, code in enumerate(ranked) if c.raw_counts[code] >= rare_code_min or i < keep_top]
     frequent.sort(key=lambda code: (-c.raw_counts[code], code))
     c.category_of = {code: (code if code in frequent else RARE_CODE) for code in c.raw_counts}
     c.categories = frequent + ([RARE_CODE] if any(v == RARE_CODE for v in c.category_of.values()) else [])
@@ -93,10 +97,10 @@ def build_combo(model: str, part_no: str, records: list[dict], codebook: Codeboo
     return c
 
 
-def split_by_combo(records: list[dict], codebook: Codebook, rare_code_min: int) -> list[ComboData]:
+def split_by_combo(records: list[dict], codebook: Codebook, rare_code_min: int, keep_top: int = 0) -> list[ComboData]:
     """A-01, I-03: 製品×部番ごとに分ける。件数の多い順(同数なら名前順)。"""
     groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for r in records:
         groups[(r["model"], r["part_no"])].append(r)
     keys = sorted(groups, key=lambda k: (-len(groups[k]), k))
-    return [build_combo(m, p, groups[(m, p)], codebook, rare_code_min) for m, p in keys]
+    return [build_combo(m, p, groups[(m, p)], codebook, rare_code_min, keep_top) for m, p in keys]

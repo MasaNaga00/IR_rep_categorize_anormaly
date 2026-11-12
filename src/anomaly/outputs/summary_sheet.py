@@ -1,12 +1,13 @@
 """サマリーシート(要件定義書 O-07)。tables.xlsx の先頭に「サマリー」を置く。
 
 上: 件数の表 / 左: ①使用期間で比べる、②時期で比べる、注目点の一覧、注記 / 右: 3つの棒グラフ(構成比)。
+その下: ③製造ロットで比べる(製造年月ごとの件数と構成比の表 / 右: 件数の積み上げ縦棒・構成比の積み上げ縦棒。A-46)。
 他のシートと違い、見るためのシートなので書式を付ける(結合セルは使わない)。
 """
 from __future__ import annotations
 
 from ..analysis.summary import (GROUP_ALL, GROUP_GE, GROUP_LT, GROUPS, PERIOD_ALL, PERIOD_RECENT, TOTAL_ROW,
-                                Summary)
+                                LotChart, Summary)
 
 SHEET_NAME = "サマリー"
 CHART_COL = "R"            # グラフを置く列(表②の右)
@@ -16,6 +17,9 @@ COLOR_HEAD = "DDEBF7"
 COLOR_NOTABLE = "FCE4D6"   # 注目点(A-14)のセル
 COLOR_SMALL = "7F7F7F"     # 件数が少ない区分の見出しの文字色
 PCT_FMT = '0.0"%"'
+# ロットのグラフの系列の色(上位5種類・その他・判定不能)
+LOT_COLORS = ["2E75B6", "ED7D31", "70AD47", "FFC000", "C00000", "A5A5A5", "D9D9D9"]
+ROW_CM = 0.53              # 1行の高さ(cm)の目安。グラフの位置の計算に使う
 DIFF_FMT = '+0.0;-0.0;0.0'
 
 
@@ -85,6 +89,7 @@ def add_summary_sheet(wb, sm: Summary) -> None:
             ("製造年月が分かった割合", sm.mfg_known_pct)]
     for j, (h, _) in enumerate(side, start=7):
         put(r, j, h, font=head_font, bg=COLOR_HEAD, align="center")
+    ws.row_dimensions[r].height = 48             # 折り返す見出しの行は高さを決めておく(グラフの位置がずれないように)
     for i, g in enumerate(GROUPS, start=1):
         put(r + i, 1, gname[g], font=head_font)
         for j, p in enumerate((PERIOD_ALL, PERIOD_RECENT), start=2):
@@ -180,6 +185,17 @@ def add_summary_sheet(wb, sm: Summary) -> None:
         put(r, 1, f"・{t}")
         r += 1
     put(r, 1, "・詳しい表は、このファイルの他のシート(全体・期間比較・使用期間_比較・ロット など)を参照してください。")
+    r += 2
+
+    # --- 上のグラフ(構成比。全期間 vs 直近)の位置 ---
+    n_rows = b_last - b_first + 1
+    height_cm = max(9.0, 3.0 + 0.6 * n_rows)
+    step = int(height_cm / ROW_CM) + 2
+    charts_end = 5 + step * len(GROUPS)
+
+    # --- ③ 製造ロットで比べる(A-46)---
+    r = max(r, charts_end + 1)
+    _lot_section(ws, sm.lot_chart, r, put, section, head_font)
 
     # --- 列幅 ---
     ws.column_dimensions["A"].width = 38
@@ -194,8 +210,6 @@ def add_summary_sheet(wb, sm: Summary) -> None:
     ws.page_setup.fitToHeight = 0
 
     # --- グラフ(構成比。全期間 vs 直近)---
-    n_rows = b_last - b_first + 1
-    height_cm = max(9.0, 3.0 + 0.6 * n_rows)
     anchor_row = 5
     for g in GROUPS:
         c0 = block_cols[g]
@@ -218,4 +232,73 @@ def add_summary_sheet(wb, sm: Summary) -> None:
         ch.legend.position = "b"
         ch.width, ch.height = 16, height_cm
         ws.add_chart(ch, f"{CHART_COL}{anchor_row}")
-        anchor_row += int(height_cm / 0.53) + 2
+        anchor_row += step
+
+
+def _lot_section(ws, lc: LotChart | None, r: int, put, section, head_font) -> None:
+    """A-46: 製造年月(またはロットの頭桁)ごとの表と、件数・構成比の積み上げ縦棒。"""
+    from openpyxl.chart import BarChart, Reference
+    from openpyxl.chart.series import SeriesLabel
+    from openpyxl.styles import Border, Side
+
+    from openpyxl.worksheet.pagebreak import Break
+
+    border = Border(bottom=Side(style="thin", color="BFBFBF"))
+    ws.row_breaks.append(Break(id=r - 1))          # 印刷・PDF では ③ から次のページにする(グラフが切れないように)
+    section(r, "③ 製造ロットで比べる(製造年月ごとの修理件数と構成比)")
+    r += 1
+    if lc is None or not lc.rows:
+        put(r, 1, "製造年月・ロットの情報がありません(シリアル変換結果が無い、または製造年月が求められなかった)。")
+        return
+    put(r, 1, "※ 件数は生産台数と、市場に出てからの期間に左右されます(新しいロットほど少なく見えます)。"
+              f"構成比は件数が {lc.min_n} 件未満のロットでは空欄。★ = 「ロット_比較」で注目点になったロット(A-14)。")
+    r += 1
+    put(r, 1, f"{lc.axis}が分からない修理 {lc.n_outside} 件は含めていません。分類不可 {lc.n_failed} 件は数えていません。")
+    r += 1
+    k = len(lc.series)
+    heads = [lc.axis] + [f"{name}\n件数" for _, name in lc.series] + ["合計"] + [f"{name}\n構成比" for _, name in lc.series]
+    for j, h in enumerate(heads, start=1):
+        put(r, j, h, font=head_font, bg=COLOR_HEAD, align="center")
+    ws.row_dimensions[r].height = 48
+    r += 1
+    first = r
+    for row in lc.rows:
+        put(r, 1, row.label, font=head_font if row.star else None,
+            bg=COLOR_NOTABLE if row.star else None).border = border
+        for j, (sk, _) in enumerate(lc.series):
+            put(r, 2 + j, row.counts[sk], align="center").border = border
+        put(r, 2 + k, row.total, align="center", font=head_font).border = border
+        for j, (sk, _) in enumerate(lc.series):
+            put(r, 3 + k + j, row.pcts[sk], fmt=PCT_FMT, align="center").border = border
+        r += 1
+    last = r - 1
+
+    def chart(title, col0, y_title, percent):
+        ch = BarChart()
+        ch.type = "col"
+        ch.grouping = "stacked"
+        ch.overlap = 100
+        ch.gapWidth = 40
+        ch.title = title
+        ch.y_axis.title = y_title
+        ch.x_axis.title = lc.axis
+        ch.x_axis.delete = False
+        ch.y_axis.delete = False
+        ch.y_axis.majorGridlines = None
+        if percent:
+            ch.y_axis.scaling.min, ch.y_axis.scaling.max = 0, 100
+        for j, (_, name) in enumerate(lc.series):
+            ch.add_data(Reference(ws, min_col=col0 + j, min_row=first, max_row=last), titles_from_data=False)
+            ser = ch.series[-1]
+            ser.tx = SeriesLabel(v=name)
+            ser.graphicalProperties.solidFill = LOT_COLORS[j % len(LOT_COLORS)]
+            ser.graphicalProperties.line.solidFill = LOT_COLORS[j % len(LOT_COLORS)]
+        ch.set_categories(Reference(ws, min_col=1, min_row=first, max_row=last))
+        ch.legend.position = "b"
+        ch.width, ch.height = max(18.0, min(34.0, 6.0 + 0.45 * len(lc.rows))), 9.5
+        return ch
+
+    head_row = first - 1                           # 表の見出しの行にそろえる
+    ws.add_chart(chart(f"{lc.axis}ごとの修理件数(故障の種類の積み上げ)", 2, "修理件数", False), f"{CHART_COL}{head_row}")
+    ws.add_chart(chart(f"{lc.axis}ごとの構成比(%)(件数 {lc.min_n} 件未満のロットは空欄)", 3 + k, "構成比(%)", True),
+                 f"{CHART_COL}{head_row + int(9.5 / ROW_CM) + 2}")

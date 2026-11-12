@@ -1,4 +1,4 @@
-"""サマリーシートの集計(要件定義書 A-40〜A-45)。
+"""サマリーシートの集計(要件定義書 A-40〜A-46)。
 
 3つの群(全件 / 使用期間 N か月未満 / N か月以上)× 2つの期間(全期間 / 直近)の6つの区分で、
 故障の種類(主な故障)の件数と構成比を出す。
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from ..settings import Settings
-from .aspects import ComboAnalysis, pct, profile, sales_note, ym_index, ym_str
+from .aspects import LOT_STATUSES, ComboAnalysis, pct, profile, sales_note, ym_index, ym_str
 from .findings import INSUFFICIENT, Comparison, judge
 from .prepare import RARE_CODE, UNKNOWN_LABEL, ComboData, is_failed, is_unknown
 from .stats import bh_adjust, compare
@@ -57,6 +57,26 @@ class SummaryRow:
 
 
 @dataclass
+class LotRow:
+    label: str                 # 製造年月(または頭桁)。注目点のロットは ★ を付ける
+    star: bool
+    counts: dict               # 系列のキー → 件数
+    total: int                 # 分類不可を除く件数
+    pcts: dict                 # 系列のキー → 構成比(%)。total < lot_min_n なら None
+
+
+@dataclass
+class LotChart:
+    """A-46: 製造ロット(製造年月)ごとの件数と構成比。"""
+    axis: str                  # "製造年月" / "ロット(頭桁)"
+    series: list               # (キー, 名前)。上位の種類 + その他 + 判定不能
+    rows: list[LotRow]
+    n_outside: int             # 製造年月(ロット)が分からず、表に入らない修理
+    n_failed: int              # 表に入る修理のうち分類不可(数えない)
+    min_n: int
+
+
+@dataclass
 class Summary:
     model: str
     part_no: str
@@ -81,6 +101,7 @@ class Summary:
     lot_spikes: list
     notes: list[str]
     min_group_n: int
+    lot_chart: LotChart | None = None
 
     def small(self, g: str, p: str) -> bool:
         """A-44: 構成比の分母が min_group_n 未満の区分(参考扱い)。"""
@@ -205,6 +226,9 @@ def build_summary(ca: ComboAnalysis, s: Settings, run_date: date) -> Summary:
     must = notable_a.union(*notable_b.values())
     shown = [c for i, c in enumerate(ranked) if i < s.summary_top_n or c in must]
     rest = [c for c in combo.categories if c not in shown]
+    # 「上記以外」に入るコード(「その他(少数)」は中のコードに戻して数える)
+    rest_codes = sorted({code for code, cat in combo.category_of.items() if cat in rest},
+                        key=lambda code: (-combo.raw_counts.get(code, 0), code))
     keys = shown + ([OTHERS_ROW] if rest else []) + [UNKNOWN_ROW]
 
     def row_count(key, cell: CellStat) -> int:
@@ -212,7 +236,7 @@ def build_summary(ca: ComboAnalysis, s: Settings, run_date: date) -> Summary:
             return sum(cell.counts[c] for c in rest)
         return cell.counts[key]
 
-    names = {OTHERS_ROW: f"上記以外({len(rest)}種類)", UNKNOWN_ROW: UNKNOWN_LABEL,
+    names = {OTHERS_ROW: f"上記以外({len(rest_codes)}種類)", UNKNOWN_ROW: UNKNOWN_LABEL,
              TOTAL_ROW: "合計(分類不可を除く)"}
     rows = []
     for key in keys + [TOTAL_ROW]:
@@ -242,7 +266,8 @@ def build_summary(ca: ComboAnalysis, s: Settings, run_date: date) -> Summary:
     if small:
         notes.append(f"件数が {s.min_group_n} 件未満の区分は、構成比が数件で大きく変わるため参考扱いです: {'、'.join(small)}")
     if rest:
-        notes.append(f"「上記以外」は、件数の少ない {len(rest)} 種類をまとめたものです。内訳は「全体」シートを参照してください。")
+        detail = "、".join(f"{combo.name(c)} {combo.raw_counts.get(c, 0)}件" for c in rest_codes)
+        notes.append(f"「上記以外」の内訳(全件・全期間): {detail}。詳しくは「全体」「コード別(まとめる前)」シート。")
     if must - set(ranked[:s.summary_top_n]):
         notes.append(f"上位 {s.summary_top_n} 種類に入らないが、注目点になった故障の種類も表に出しています。")
     n_all = len(combo.records)
@@ -252,7 +277,63 @@ def build_summary(ca: ComboAnalysis, s: Settings, run_date: date) -> Summary:
         split_months=split, recent_from=ym_str(lo), recent_to=ym_str(hi),
         first_date=min((r["received_date"] for r in combo.records), default=None),
         last_date=max((r["received_date"] for r in combo.records), default=None),
-        group_names=group_names, period_names=period_names, cells=cells, rows=rows, others_count=len(rest),
+        group_names=group_names, period_names=period_names, cells=cells, rows=rows, others_count=len(rest_codes),
         n_no_mfg=n_no_mfg, n_negative=n_negative, mfg_known_pct=pct(known, n_all),
         axis_a=axis_a, axis_b=axis_b, findings=findings, lot_spikes=list(ca.lot.facts.get("spikes", [])),
-        notes=notes, min_group_n=s.min_group_n)
+        notes=notes, min_group_n=s.min_group_n, lot_chart=build_lot_chart(ca, s))
+
+
+LOT_TOP = 5                    # ロットのグラフで、色を分けて出す種類の数(上位5種類)
+LOT_OTHER = "__LOT_OTHER__"
+
+
+def build_lot_chart(ca: ComboAnalysis, s: Settings) -> LotChart | None:
+    """A-46: 製造年月(無ければロットの頭桁)ごとに、上位5種類・その他・判定不能の件数と構成比。"""
+    combo = ca.combo
+    with_ym = [r for r in combo.records if r.get("mfg_ym")]
+    if with_ym:
+        axis = "製造年月"
+        lo, hi = min(ym_index(r["mfg_ym"]) for r in with_ym), max(ym_index(r["mfg_ym"]) for r in with_ym)
+        keys = [ym_str(i) for i in range(lo, hi + 1)]          # 修理の無い月も並べる(横軸の間隔をそろえる)
+        key_of = lambda r: r["mfg_ym"]                         # noqa: E731
+        inside = with_ym
+    else:
+        inside = [r for r in combo.records if r.get("lot_code") and r.get("mfg_status") in LOT_STATUSES]
+        if not inside:
+            return None
+        axis = "ロット(頭桁)"
+        order = {}
+        for r in inside:
+            order.setdefault(r["lot_code"], r.get("lot_order"))
+        keys = sorted(order, key=lambda k: (order[k] is None, order[k] if order[k] is not None else 0, k))
+        key_of = lambda r: r["lot_code"]                       # noqa: E731
+
+    top = [c for c in combo.categories if c != RARE_CODE][:LOT_TOP]
+    series = [(c, combo.name(c)) for c in top] + [(LOT_OTHER, "その他"), (UNKNOWN_ROW, UNKNOWN_LABEL)]
+
+    def series_key(r):
+        if is_unknown(r, combo.unknown_code):
+            return UNKNOWN_ROW
+        c = combo.category(r)
+        return c if c in top else LOT_OTHER
+
+    starred = set()
+    for comp in ca.lot.comparisons:
+        if comp.findings:
+            starred |= {key_of(r) for r in comp.members.get("a", []) if key_of(r)}
+    by_key: dict[str, Counter] = {k: Counter() for k in keys}
+    n_failed = 0
+    for r in inside:
+        if is_failed(r):
+            n_failed += 1
+            continue
+        by_key[key_of(r)][series_key(r)] += 1
+    rows = []
+    for k in keys:
+        cnt = by_key[k]
+        total = sum(cnt.values())
+        rows.append(LotRow(label=f"{k}★" if k in starred else k, star=k in starred,
+                           counts={sk: cnt[sk] for sk, _ in series}, total=total,
+                           pcts={sk: (pct(cnt[sk], total) if total >= s.lot_min_n else None) for sk, _ in series}))
+    return LotChart(axis=axis, series=series, rows=rows, n_outside=len(combo.records) - len(inside),
+                    n_failed=n_failed, min_n=s.lot_min_n)
