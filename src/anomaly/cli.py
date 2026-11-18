@@ -379,7 +379,8 @@ class Session:
             self.c.say("[6] 解析の結果は既にあります(作り直しません)。")
         else:
             self.c.say("[6] 解析しています。")
-            results = analyze_records(self.records, self.codebook, s, self.run_date, self.run_dir, info)
+            results = analyze_records(self.records, self.codebook, s, self.run_date, self.run_dir, info,
+                                      columns=self.columns)
             for line in summary_lines(results):
                 self.c.say(line)
         self.state.complete(6)

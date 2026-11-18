@@ -175,11 +175,17 @@ def finding_rows(label_prefix: str, comps: list[Comparison]) -> list[dict]:
 ASPECT_LABELS = {"recent": "時期(全件)", "usage": "使用期間", "lot": "製造ロット"}
 
 
+def recent_window(s: Settings, run_date: date) -> tuple[int, int]:
+    """A-07: 直近の期間(通し月数の lo〜hi)。実行日の月を含めず、前月までの recent_months か月。"""
+    run_idx = run_date.year * 12 + run_date.month - 1
+    return run_idx - s.recent_months, run_idx - 1
+
+
 def build_summary(ca: ComboAnalysis, s: Settings, run_date: date) -> Summary:
     combo = ca.combo
     split, n_recent = s.usage_split_months, s.recent_months
     run_idx = run_date.year * 12 + run_date.month - 1
-    hi, lo = run_idx - 1, run_idx - n_recent
+    lo, hi = recent_window(s, run_date)
     before_lo = lo - n_recent if s.recent_compare == "same_length" else None
 
     def in_recent(r):

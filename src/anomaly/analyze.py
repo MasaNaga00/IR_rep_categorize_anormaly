@@ -21,6 +21,7 @@ from .analysis.summary import Summary, build_summary
 from .codebook import Codebook
 from .outputs.excel import combo_sheets, index_rows, write_workbook
 from .outputs.files import combo_dir_name, write_json
+from .outputs.tagged_repairs import FILE_NAME as TAGGED_FILE, write_tagged_repairs
 from .outputs.summary_sheet import ENV_SHEET_NAME, SHEET_NAME, add_empty_sheet, add_summary_sheet, env_line
 from .outputs.tableau import write_tableau
 from .report.markdown import build_report
@@ -80,8 +81,9 @@ def _add_summaries(wb, sm: Summary, sm_env: Summary | None, n_removed: int, by: 
 
 
 def analyze_records(records: list[dict], codebook: Codebook, s: Settings, run_date: date, out_dir: str | Path,
-                    run_info: dict | None = None) -> list[tuple[ComboAnalysis, str]]:
-    """組み合わせごとに解析し、O-01 のファイルを書く。戻り値: (解析結果, フォルダ名) のリスト。"""
+                    run_info: dict | None = None, columns: dict | None = None) -> list[tuple[ComboAnalysis, str]]:
+    """組み合わせごとに解析し、O-01 のファイルを書く。戻り値: (解析結果, フォルダ名) のリスト。
+    columns: input_columns.yaml の対応づけ(tagged_repairs.xlsx の見出しに使う。省略すると既定の列名)。"""
     out = Path(out_dir)
     info = {"run_date": run_date.isoformat(), **(run_info or {})}
     info["warnings"] = list(info.get("warnings", [])) + staleness_warning(records, s, run_date)
@@ -96,6 +98,7 @@ def analyze_records(records: list[dict], codebook: Codebook, s: Settings, run_da
                        before_save=lambda wb, a=(sm, sm_env, n_removed, by, s, combo): _add_summaries(wb, *a))
         d.joinpath("report.md").write_text(build_report(ca, s, info), encoding="utf-8")
         write_json(d / "findings.json", findings_json(ca, s, info))
+        write_tagged_repairs(d / TAGGED_FILE, ca, codebook, s, run_date, columns)      # O-08
         results.append((ca, folder))
     write_workbook(out / "index.xlsx", {"一覧": index_rows(results)})
     write_tableau(out / "tableau_long.csv", records, codebook, s)
@@ -138,8 +141,9 @@ def main(argv=None) -> int:
         s = load_settings(paths.settings)
         records = read_classified(a.classified)
         info: dict = {"serial_result": None}
+        cols = load_column_config(paths.columns)
         if a.serial_result:
-            res = load_serial_results(a.serial_result, *result_column_names(load_column_config(paths.columns)))
+            res = load_serial_results(a.serial_result, *result_column_names(cols))
             merge_serial(records, res, s.usage_max_months)
             info["serial_result"] = str(a.serial_result)
         elif any(r.get("mfg_status") for r in records):
@@ -154,7 +158,7 @@ def main(argv=None) -> int:
     for w in s.warnings:
         print(f"注意: {w}")
     info["internal_excluded"] = list(s.internal_comment_excluded_sales_companies)
-    results = analyze_records(records, cb, s, run_date, out, info)
+    results = analyze_records(records, cb, s, run_date, out, info, columns=cols)
     for line in summary_lines(results):
         print(line)
     print(f"出力: {out}")
