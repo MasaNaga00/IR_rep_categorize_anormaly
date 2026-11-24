@@ -10,6 +10,7 @@ from ..analysis.aspects import ComboAnalysis, profile_rows
 from ..analysis.findings import JUDGEMENT_NAMES
 from ..report.markdown import ASPECT_TITLES, all_examples, prerequisites
 from ..settings import Settings
+from .excel_safe import excel_safe
 
 EMPTY = "(データなし)"
 
@@ -32,11 +33,11 @@ def write_workbook(path: Path, sheets: dict[str, list[dict]], before_save=None) 
             for k in r:
                 if k not in headers:
                     headers.append(k)
-        ws.append(headers)
+        ws.append([excel_safe(h) for h in headers])
         for c in ws[1]:
             c.font = bold
         for r in rows:
-            ws.append([r.get(h) for h in headers])
+            ws.append([excel_safe(r.get(h)) for h in headers])         # O-09
         ws.freeze_panes = "A2"
         for i, h in enumerate(headers, start=1):
             width = max([len(str(h))] + [len(str(r.get(h) if r.get(h) is not None else "")) for r in rows[:200]])

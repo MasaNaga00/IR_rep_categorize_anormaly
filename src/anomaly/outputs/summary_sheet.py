@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from ..analysis.summary import (GROUP_ALL, GROUP_GE, GROUP_LT, GROUPS, PERIOD_ALL, PERIOD_RECENT, TOTAL_ROW,
                                 LotChart, Summary)
+from .excel_safe import excel_safe
 
 SHEET_NAME = "サマリー"
 ENV_SHEET_NAME = "サマリー(環境要因除く)"     # A-47。先頭(1枚目)に置く
@@ -29,9 +30,9 @@ def add_empty_sheet(wb, sheet_name: str, title: str, lines: list[str], index: in
     ws = wb.create_sheet(sheet_name, index)
     for col in range(1, 19):
         ws.cell(1, col).fill = PatternFill("solid", fgColor=COLOR_TITLE)
-    ws.cell(1, 1, title).font = Font(bold=True, size=14, color="FFFFFF")
+    ws.cell(1, 1, excel_safe(title)).font = Font(bold=True, size=14, color="FFFFFF")
     for i, t in enumerate(lines, start=2):
-        ws.cell(i, 1, t)
+        ws.cell(i, 1, excel_safe(t))
     ws.column_dimensions["A"].width = 38
 CHART_COL = "R"            # グラフを置く列(表②の右)
 COLOR_TITLE = "1F4E79"
@@ -69,7 +70,7 @@ def add_summary_sheet(wb, sm: Summary, sheet_name: str = SHEET_NAME, index: int 
     small_font = Font(bold=True, color=COLOR_SMALL)
 
     def put(row, col, value, *, font=None, bg=None, fmt=None, align=None):
-        c = ws.cell(row, col, value)
+        c = ws.cell(row, col, excel_safe(value))                    # O-09
         if font:
             c.font = font
         if bg:

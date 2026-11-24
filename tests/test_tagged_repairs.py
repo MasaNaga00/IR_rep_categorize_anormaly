@@ -101,3 +101,38 @@ def test_O08_file_per_combo_with_original_column_names(codebook, tmp_path):
     assert (tmp_path / "combos" / "L200__P-777" / "tagged_repairs.xlsx").exists()   # 組み合わせごと
     doc = [r[0].value for r in wb["列の説明"].iter_rows(min_row=2)]
     assert doc[:2] == ["行番号", "RepairNo"] and "直近6か月" in doc
+
+
+# --- O-09: Excel に書けない制御文字(2026-11-24 に会社PCの実データで IllegalCharacterError) ---
+
+from anomaly.outputs.excel import write_workbook  # noqa: E402
+from anomaly.outputs.excel_safe import excel_safe  # noqa: E402
+
+
+def test_O09_excel_safe_rules():
+    assert excel_safe("a\x0bb") == "a\nb"                             # 垂直タブは改行に
+    assert excel_safe("a\x00b\x1ac\x08d\x0ce") == "a b c d e"         # ほかの使えない制御文字は空白に
+    assert excel_safe("改行\nタブ\t復帰\r") == "改行\nタブ\t復帰\r"      # 改行・タブ・復帰はそのまま
+    assert excel_safe("中文 한국어 English 日本語") == "中文 한국어 English 日本語"
+    assert excel_safe(12) == 12 and excel_safe(None) is None
+
+
+def test_O09_tagged_repairs_with_control_characters(codebook, tmp_path):
+    recs = _sample()
+    recs[0]["user_comment"] = "電源が入らない\x0b2回目\x1a"
+    recs[0]["repair_comment"] = "\x00PCB NG"
+    recs[0]["failures"][1]["excerpt"] = "PCB\x0cNG"
+    analyze_records(recs, codebook, parse_settings(None), RUN_DATE, tmp_path)   # エラーにならない
+    ws = openpyxl.load_workbook(tmp_path / "combos" / "X100__P-001" / "tagged_repairs.xlsx")["修理データ"]
+    heads = [c.value for c in ws[1]]
+    row = {h: c.value for h, c in zip(heads, next(r for r in ws.iter_rows(min_row=2) if r[0].value == 3))}
+    assert row["user_comment"] == "電源が入らない\n2回目 "
+    assert row["repair_comment"] == " PCB NG"
+    assert row["主な故障の根拠(原文)"] == "PCB NG"
+    assert recs[0]["user_comment"] == "電源が入らない\x0b2回目\x1a"            # 元のデータは変えない
+
+
+def test_O09_write_workbook_with_control_characters(tmp_path):
+    p = write_workbook(tmp_path / "x.xlsx", {"表": [{"列\x01": "値\x0bあ\x1f"}]})
+    ws = openpyxl.load_workbook(p)["表"]
+    assert (ws["A1"].value, ws["A2"].value) == ("列 ", "値\nあ ")

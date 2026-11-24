@@ -18,6 +18,7 @@ from ..codebook import Codebook
 from ..constants import MFG_NO_USAGE_STATUSES
 from ..input_loader import DEFAULT_COLUMNS
 from ..settings import Settings
+from .excel_safe import excel_safe
 
 FILE_NAME = "tagged_repairs.xlsx"
 SHEET_NAME = "修理データ"
@@ -146,7 +147,7 @@ def write_tagged_repairs(path: Path, ca: ComboAnalysis, codebook: Codebook, s: S
     wb = Workbook()
     ws = wb.active
     ws.title = SHEET_NAME
-    ws.append(heads)
+    ws.append([excel_safe(h) for h in heads])
     head_fill, tag_fill = PatternFill("solid", fgColor="DDEBF7"), PatternFill("solid", fgColor="FCE4D6")
     n_data = 1 + len(DATA_KEYS)
     for j, c in enumerate(ws[1], start=1):
@@ -154,7 +155,7 @@ def write_tagged_repairs(path: Path, ca: ComboAnalysis, codebook: Codebook, s: S
         c.fill = head_fill if j <= n_data else tag_fill
         c.alignment = Alignment(wrap_text=True, vertical="center")
     for row in rows:
-        ws.append([row.get(k) for k in keys])
+        ws.append([excel_safe(row.get(k)) for k in keys])           # O-09: Excel に書けない制御文字を置き換える
     wrap = Alignment(wrap_text=True, vertical="top")
     widths = {"行番号": 8, "received_date": 12, "主な故障": 18, "主な故障コード": 10, "書かれていた故障すべて": 30,
               "主な故障の根拠(原文)": 30, "主な故障の根拠(日本語訳)": 30, "分類の状態": 10, "環境要因": 24,
@@ -183,7 +184,7 @@ def write_tagged_repairs(path: Path, ca: ComboAnalysis, codebook: Codebook, s: S
              "user_comment": "ユーザコメント", "repair_comment": "修理コメント", "internal_1": "内部コメント1",
              "internal_2": "内部コメント2"}
     for k in DATA_KEYS:
-        doc.append([cols[k], f"元のデータ: {names[k]}"])
+        doc.append([excel_safe(cols[k]), f"元のデータ: {names[k]}"])
     for h, desc in tags:
         doc.append([h, desc])
     doc.column_dimensions["A"].width = 26
