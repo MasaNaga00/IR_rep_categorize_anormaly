@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import csv
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -19,6 +21,20 @@ if str(SRC) not in sys.path:
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 SYNTH = FIXTURES / "synthetic"
 CODEBOOK_TEST_YAML = FIXTURES / "codebook_test.yaml"
+
+
+def run_cli(args: list[str], drop_env_prefix: str | None = None) -> subprocess.CompletedProcess:
+    """anomaly_cli.py を別のプロセスで起動する(U-02、U-07 のテスト用)。
+
+    - 今の環境変数を引き継ぐ(Windows では SYSTEMROOT などが無いと Python が起動できないため)。
+    - 出力の文字コードを UTF-8 に固定する(Windows では別プロセスの出力が cp932 になり、日本語を読めないため。
+      2026-11-24 に会社PCで4件失敗した原因)。
+    - drop_env_prefix: この文字で始まる環境変数を外す(例: "DIFY_" で Dify の接続情報を外す)。
+    """
+    env = {k: v for k, v in os.environ.items() if not (drop_env_prefix and k.startswith(drop_env_prefix))}
+    env.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"})
+    return subprocess.run([sys.executable, str(REPO_ROOT / "anomaly_cli.py"), *args],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
 
 
 def read_csv(path: Path) -> list[dict]:

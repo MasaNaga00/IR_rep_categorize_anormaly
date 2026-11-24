@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from datetime import date
 
 import pytest
@@ -12,7 +10,7 @@ from anomaly.cli import Console, clean_path, main
 from anomaly.local_config import init_local
 from anomaly.state import find_unfinished, load_state
 
-from .conftest import FIXTURES, REPO_ROOT, SYNTH
+from .conftest import FIXTURES, SYNTH, run_cli
 from .fake_dify import FakeDify, api_error
 
 CSV = str(SYNTH / "repairs.csv")
@@ -207,13 +205,11 @@ def test_U05_keyboard_interrupt(local):
 
 def test_U02_cli_dispatch_interactive(local):
     """anomaly_cli.py にサブコマンドを付けないと対話式になる(Dify の接続情報が無いので段階3で止まる)。"""
-    r = subprocess.run([sys.executable, str(REPO_ROOT / "anomaly_cli.py"), "--local-dir", str(local), "--input", CSV, "--yes"],
-                       capture_output=True, text=True, encoding="utf-8",
-                       env={"PATH": "", "SYSTEMROOT": "", "PYTHONDONTWRITEBYTECODE": "1"})
+    r = run_cli(["--local-dir", str(local), "--input", CSV, "--yes"], drop_env_prefix="DIFY_")
     assert r.returncode == 1
     assert "[2] 分類の準備" in r.stdout and "DIFY_API_KEY_CLASSIFY" in r.stdout
 
 
 def test_U02_cli_help():
-    r = subprocess.run([sys.executable, str(REPO_ROOT / "anomaly_cli.py"), "--help"], capture_output=True, text=True, encoding="utf-8")
+    r = run_cli(["--help"])
     assert r.returncode == 0 and "対話式" in r.stdout
